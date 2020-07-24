@@ -1496,46 +1496,46 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         })
     }
 
-    pub async fn do_shield(&self, address: Option<String>) -> Result<String, String> {
-        let fee = u64::from(DEFAULT_FEE);
-        let tbal = self.wallet.tbalance(None).await;
+    // pub async fn do_shield(&self, address: Option<String>) -> Result<String, String> {
+    //     let fee = u64::from(DEFAULT_FEE);
+    //     let tbal = self.wallet.tbalance(None).await;
+    //
+    //     // Make sure there is a balance, and it is greated than the amount
+    //     if tbal <= fee {
+    //         return Err(format!(
+    //             "Not enough transparent balance to shield. Have {} zats, need more than {} zats to cover tx fee",
+    //             tbal, fee
+    //         ));
+    //     }
+    //
+    //     let addr = address
+    //         .or(self
+    //             .wallet
+    //             .keys()
+    //             .read()
+    //             .await
+    //             .get_all_zaddresses()
+    //             .get(0)
+    //             .map(|s| s.clone()))
+    //         .unwrap();
+    //
+    //     let result = {
+    //         let _lock = self.sync_lock.lock().await;
+    //         let (sapling_output, sapling_spend) = self.read_sapling_params()?;
+    //
+    //         let prover = LocalTxProver::from_bytes(&sapling_spend, &sapling_output);
+    //
+    //         self.wallet
+    //             .send_to_address(prover, true, vec![(&addr, tbal - fee, None)], |txbytes| {
+    //                 GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
+    //             })
+    //             .await
+    //     };
+    //
+    //     result.map(|(txid, _)| txid)
+    // }
 
-        // Make sure there is a balance, and it is greated than the amount
-        if tbal <= fee {
-            return Err(format!(
-                "Not enough transparent balance to shield. Have {} zats, need more than {} zats to cover tx fee",
-                tbal, fee
-            ));
-        }
-
-        let addr = address
-            .or(self
-                .wallet
-                .keys()
-                .read()
-                .await
-                .get_all_zaddresses()
-                .get(0)
-                .map(|s| s.clone()))
-            .unwrap();
-
-        let result = {
-            let _lock = self.sync_lock.lock().await;
-            let (sapling_output, sapling_spend) = self.read_sapling_params()?;
-
-            let prover = LocalTxProver::from_bytes(&sapling_spend, &sapling_output);
-
-            self.wallet
-                .send_to_address(prover, true, vec![(&addr, tbal - fee, None)], |txbytes| {
-                    GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
-                })
-                .await
-        };
-
-        result.map(|(txid, _)| txid)
-    }
-
-    pub async fn do_send(&self, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
+    pub async fn do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
         info!("Creating transaction");
 
         // println!("BranchID {:x}", branch_id);
@@ -1547,7 +1547,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             let prover = LocalTxProver::from_bytes(&sapling_spend, &sapling_output);
 
             self.wallet
-                .send_to_address(prover, false, addrs, |txbytes| {
+                .send_to_address(prover, false, from, addrs, |txbytes| {
                     GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
                 })
                 .await
@@ -1557,7 +1557,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     }
 
     #[cfg(test)]
-    pub async fn test_do_send(&self, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
+    pub async fn test_do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
         info!("Creating transaction");
 
         let result = {
@@ -1565,7 +1565,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             let prover = crate::blaze::test_utils::FakeTxProver {};
 
             self.wallet
-                .send_to_address(prover, false, addrs, |txbytes| {
+                .send_to_address(prover, false, from, addrs, |txbytes| {
                     GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
                 })
                 .await

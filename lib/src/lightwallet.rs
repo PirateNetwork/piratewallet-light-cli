@@ -957,33 +957,24 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         });
     }
 
-    async fn select_notes_and_utxos(
+    async fn select_notes_and_utxos_by_address(
         &self,
         target_amount: Amount,
-        transparent_only: bool,
-        shield_transparenent: bool,
+        from: &str,
     ) -> (Vec<SpendableNote>, Vec<Utxo>, Amount) {
         // First, if we are allowed to pick transparent value, pick them all
-        let utxos = if transparent_only || shield_transparenent {
-            self.get_utxos()
-                .await
-                .iter()
-                .filter(|utxo| utxo.unconfirmed_spent.is_none() && utxo.spent.is_none())
-                .map(|utxo| utxo.clone())
-                .collect::<Vec<_>>()
-        } else {
-            vec![]
-        };
+        let utxos = self.get_utxos()
+                    .await
+                    .iter()
+                    .filter(|utxo| utxo.address == from)
+                    .filter(|utxo| utxo.unconfirmed_spent.is_none() && utxo.spent.is_none())
+                    .map(|utxo| utxo.clone())
+                    .collect::<Vec<_>>();
 
         // Check how much we've selected
         let transparent_value_selected = utxos.iter().fold(Amount::zero(), |prev, utxo| {
             (prev + Amount::from_u64(utxo.value).unwrap()).unwrap()
         });
-
-        // If we are allowed only transparent funds or we've selected enough then return
-        if transparent_only || transparent_value_selected >= target_amount {
-            return (vec![], utxos, transparent_value_selected);
-        }
 
         // Start collecting sapling funds at every allowed offset
         for anchor_offset in &self.config.anchor_offset {
@@ -995,6 +986,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
                 .current
                 .iter()
                 .flat_map(|(txid, tx)| tx.notes.iter().map(move |note| (*txid, note)))
+                .filter(|(_txid, note)|LightWallet::<P>::note_address(&self.config.hrp_sapling_address(), note).unwrap() == from)
                 .filter(|(_, note)| note.note.value > 0)
                 .filter_map(|(txid, note)| {
                     // Filter out notes that are already spent
@@ -1036,12 +1028,95 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
         // If we can't select enough, then we need to return empty handed
         (vec![], vec![], Amount::zero())
+
     }
+
+    // async fn select_notes_and_utxos(
+    //     &self,
+    //     target_amount: Amount,
+    //     transparent_only: bool,
+    //     shield_transparenent: bool,
+    // ) -> (Vec<SpendableNote>, Vec<Utxo>, Amount) {
+    //     // First, if we are allowed to pick transparent value, pick them all
+    //     let utxos = if transparent_only || shield_transparenent {
+    //         self.get_utxos()
+    //             .await
+    //             .iter()
+    //             .filter(|utxo| utxo.unconfirmed_spent.is_none() && utxo.spent.is_none())
+    //             .map(|utxo| utxo.clone())
+    //             .collect::<Vec<_>>()
+    //     } else {
+    //         vec![]
+    //     };
+    //
+    //     // Check how much we've selected
+    //     let transparent_value_selected = utxos.iter().fold(Amount::zero(), |prev, utxo| {
+    //         (prev + Amount::from_u64(utxo.value).unwrap()).unwrap()
+    //     });
+    //
+    //     // If we are allowed only transparent funds or we've selected enough then return
+    //     if transparent_only || transparent_value_selected >= target_amount {
+    //         return (vec![], utxos, transparent_value_selected);
+    //     }
+    //
+    //     // Start collecting sapling funds at every allowed offset
+    //     for anchor_offset in &self.config.anchor_offset {
+    //         let keys = self.keys.read().await;
+    //         let mut candidate_notes = self
+    //             .txns
+    //             .read()
+    //             .await
+    //             .current
+    //             .iter()
+    //             .flat_map(|(txid, tx)| tx.notes.iter().map(move |note| (*txid, note)))
+    //             .filter(|(_, note)| note.note.value > 0)
+    //             .filter_map(|(txid, note)| {
+    //                 // Filter out notes that are already spent
+    //                 if note.spent.is_some() || note.unconfirmed_spent.is_some() {
+    //                     None
+    //                 } else {
+    //                     // Get the spending key for the selected fvk, if we have it
+    //                     let extsk = keys.get_extsk_for_extfvk(&note.extfvk);
+    //                     SpendableNote::from(txid, note, *anchor_offset as usize, &extsk)
+    //                 }
+    //             })
+    //             .collect::<Vec<_>>();
+    //         candidate_notes.sort_by(|a, b| b.note.value.cmp(&a.note.value));
+    //
+    //         // Select the minimum number of notes required to satisfy the target value
+    //         let notes = candidate_notes
+    //             .into_iter()
+    //             .scan(Amount::zero(), |running_total, spendable| {
+    //                 if *running_total >= (target_amount - transparent_value_selected).unwrap() {
+    //                     None
+    //                 } else {
+    //                     *running_total += Amount::from_u64(spendable.note.value).unwrap();
+    //                     Some(spendable)
+    //                 }
+    //             })
+    //             .collect::<Vec<_>>();
+    //         let sapling_value_selected = notes.iter().fold(Amount::zero(), |prev, sn| {
+    //             (prev + Amount::from_u64(sn.note.value).unwrap()).unwrap()
+    //         });
+    //
+    //         if sapling_value_selected + transparent_value_selected >= Some(target_amount) {
+    //             return (
+    //                 notes,
+    //                 utxos,
+    //                 (sapling_value_selected + transparent_value_selected).unwrap(),
+    //             );
+    //         }
+    //     }
+    //
+    //     // If we can't select enough, then we need to return empty handed
+    //     (vec![], vec![], Amount::zero())
+    // }
 
     pub async fn send_to_address<F, Fut, PR: TxProver>(
         &self,
         prover: PR,
         transparent_only: bool,
+        from: &str,
         tos: Vec<(&str, u64, Option<String>)>,
         broadcast_fn: F,
     ) -> Result<(String, Vec<u8>), String>
@@ -1054,7 +1129,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
         // Call the internal function
         match self
-            .send_to_address_internal(prover, transparent_only, tos, broadcast_fn)
+            .send_to_address_internal(prover, transparent_only, from, tos, broadcast_fn)
             .await
         {
             Ok((txid, rawtx)) => {
@@ -1071,7 +1146,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
     async fn send_to_address_internal<F, Fut, PR: TxProver>(
         &self,
         prover: PR,
-        transparent_only: bool,
+        _transparent_only: bool,
+        from: &str,
         tos: Vec<(&str, u64, Option<String>)>,
         broadcast_fn: F,
     ) -> Result<(String, Vec<u8>), String>
@@ -1116,8 +1192,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
         // Select notes to cover the target value
         println!("{}: Selecting notes", now() - start_time);
-
-        let target_amount = Amount::from_u64(total_value).unwrap() + DEFAULT_FEE;
+        let target_value = (Amount::from_u64(total_value).unwrap() + DEFAULT_FEE).unwrap();
         let target_height = match self.get_target_height().await {
             Some(h) => BlockHeight::from_u32(h),
             None => return Err("No blocks in wallet to target, please sync first".to_string()),
@@ -1132,12 +1207,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         let address_to_sk = self.keys.read().await.get_taddr_to_sk_map();
 
         let (notes, utxos, selected_value) = self
-            .select_notes_and_utxos(target_amount.unwrap(), transparent_only, true)
+            .select_notes_and_utxos_by_address(target_value, from)
             .await;
-        if selected_value < target_amount.unwrap() {
+
+        // Confirm we were able to select sufficient value
+        if selected_value < target_value {
             let e = format!(
                 "Insufficient verified funds. Have {} zats, need {} zats. NOTE: funds need at least {} confirmations before they can be spent.",
-                u64::from(selected_value), u64::from(target_amount.unwrap()), self.config.anchor_offset.last().unwrap() + 1
+                u64::from(selected_value), u64::from(target_value), self.config.anchor_offset.last().unwrap() + 1
             );
             error!("{}", e);
             return Err(e);
@@ -1189,19 +1266,46 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             }
         }
 
+
+        // Use the ovk belonging to the address being sent from, if not using any notes
+        // use the first address in the wallet for the ovk.
+        let ovk = if notes.len() == 0 {
+            self.keys.read().await.zkeys[0].extfvk.fvk.ovk
+        } else {
+            ExtendedFullViewingKey::from(&notes[0].extsk).fvk.ovk
+        };
+
         // If no Sapling notes were added, add the change address manually. That is,
-        // send the change to our sapling address manually. Note that if a sapling note was spent,
-        // the builder will automatically send change to that address
-        if notes.len() == 0 {
-            builder.send_change_to(
-                self.keys.read().await.zkeys[0].extfvk.fvk.ovk,
-                self.keys.read().await.zkeys[0].zaddress.clone(),
-            );
+        // send the change back to the transparent address being used,
+        // the builder will automatically send change back to the sapling address if notes are used.
+        if notes.len() == 0 && u64::from(selected_value) - u64::from(target_value) > 0 {
+
+            println!("{}: Adding change output", now() - start_time);
+
+            // let from_addr = address::RecipientAddress::from_str(from,
+            //                 self.config.hrp_sapling_address(),
+            //                 self.config.base58_pubkey_address(),
+            //                 self.config.base58_script_address()).unwrap();
+
+            let from_addr = address::RecipientAddress::decode(&self.config.get_params(), from).unwrap();
+
+            if let Err(e) =  match from_addr {
+                address::RecipientAddress::Shielded(from_addr) => {
+                    builder.add_sapling_output(Some(ovk), from_addr.clone(), (selected_value - target_value).unwrap(), MemoBytes::empty())
+                }
+                address::RecipientAddress::Transparent(from_addr) => {
+                    builder.add_transparent_output(&from_addr, (selected_value - target_value).unwrap())
+                }
+            } {
+                let e = format!("Error adding transparent change output: {:?}", e);
+                error!("{}", e);
+                return Err(e);
+            }
         }
 
-        // We'll use the first ovk to encrypt outgoing Txns
-        let ovk = self.keys.read().await.zkeys[0].extfvk.fvk.ovk;
-        let mut total_z_recepients = 0u32;
+
+
+        let mut total_z_recepients = 0;
         for (to, value, memo) in recepients {
             // Compute memo if it exists
             let encoded_memo = match memo {
@@ -1219,7 +1323,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
                 }
             };
 
-            println!("{}: Adding output", now() - start_time);
+            println!("{}: Adding outputs", now() - start_time);
 
             if let Err(e) = match to {
                 address::RecipientAddress::Shielded(to) => {
