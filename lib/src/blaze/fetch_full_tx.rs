@@ -297,7 +297,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
         // is invoked by a transparent transaction, and we have not seen this Tx from the trial_decryptions processor, the Note
         // might not exist, and the memo updating might be a No-Op. That's Ok, the memo will get updated when this Tx is scanned
         // a second time by the Full Tx Fetcher
-        let mut outgoing_metadatas = vec![];
+        let mut outgoing_meta = vec![];
+        let mut outgoing_meta_change = Vec::new();
 
         if let Some(s_bundle) = tx.sapling_bundle() {
             for output in s_bundle.shielded_outputs.iter() {
@@ -346,19 +347,19 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                                 // presumably the users is writing a memo to themself, so we will add it to
                                 // the outgoing metadata, even though it might be confusing in the UI, but hopefully
                                 // the user can make sense of it.
-                                match Memo::try_from(memo_bytes) {
-                                    Err(_) => None,
-                                    Ok(memo) => {
-                                        if memo == Memo::Empty {
-                                            None
-                                        } else {
-                                            Some(OutgoingTxMetadata {
-                                                address,
-                                                value: note.value,
-                                                memo,
-                                            })
-                                        }
-                                    }
+                                if !z_addresses.contains(&address) {
+                                    let memo = match Memo::try_from(memo_bytes) {
+                                        Err(_) => Memo::Empty,
+                                        Ok(memotry) => memotry
+                                    };
+
+                                    Some(OutgoingTxMetadata {
+                                        address,
+                                        value: note.value,
+                                        memo,
+                                    })
+                                } else {
+                                    None
                                 }
                             }
                             None => None,
@@ -367,7 +368,48 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                     .collect::<Vec<_>>();
 
                 // Add it to the overall outgoing metadatas
-                outgoing_metadatas.extend(omds);
+                outgoing_meta.extend(omds);
+
+                let omds_change = ovks
+                    .iter()
+                    .filter_map(|ovk| {
+                        match try_sapling_output_recovery(&config.get_params(), height, &ovk, &output) {
+                            Some((note, payment_address, memo_bytes)) => {
+                                // Mark this tx as an outgoing tx, so we can grab all outgoing metadata
+                                is_outgoing_tx = true;
+
+                                let address = encode_payment_address(config.hrp_sapling_address(), &payment_address);
+
+                                // Check if this is change, and if it also doesn't have a memo, don't add
+                                // to the outgoing metadata.
+                                // If this is change (i.e., funds sent to ourself) AND has a memo, then
+                                // presumably the users is writing a memo to themself, so we will add it to
+                                // the outgoing metadata, even though it might be confusing in the UI, but hopefully
+                                // the user can make sense of it.
+                                if z_addresses.contains(&address) {
+                                    let memo = match Memo::try_from(memo_bytes) {
+                                        Err(_) => Memo::Empty,
+                                        Ok(memotry) => memotry
+                                    };
+
+                                    Some(OutgoingTxMetadata {
+                                        address,
+                                        value: note.value,
+                                        memo,
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            None => None,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                // Add it to the overall outgoing metadatas
+                outgoing_meta_change.extend(omds_change);
+
+
             }
         }
 
@@ -385,11 +427,19 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
 
                     // if taddr.is_some() && !taddrs_set.contains(taddr.as_ref().unwrap()) {
                     if taddr.is_some() {
-                        outgoing_metadatas.push(OutgoingTxMetadata {
-                            address: taddr.unwrap(),
-                            value: vout.value.into(),
-                            memo: Memo::Empty,
-                        });
+                        if !taddrs_set.contains(taddr.as_ref().unwrap()) {
+                            outgoing_meta.push(OutgoingTxMetadata {
+                                address: taddr.unwrap(),
+                                value: vout.value.into(),
+                                memo: Memo::Empty,
+                            });
+                        } else {
+                            outgoing_meta_change.push(OutgoingTxMetadata {
+                                address: taddr.unwrap(),
+                                value: vout.value.into(),
+                                memo: Memo::Empty,
+                            });
+                        }
                     }
                 }
 
@@ -400,11 +450,18 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
             }
         }
 
-        if !outgoing_metadatas.is_empty() {
+        if !outgoing_meta.is_empty() {
             wallet_txns
                 .write()
                 .await
-                .add_outgoing_metadata(&tx.txid(), outgoing_metadatas);
+                .add_outgoing_metadata(&tx.txid(), outgoing_meta, false);
+        }
+
+        if !outgoing_meta_change.is_empty() {
+            wallet_txns
+                .write()
+                .await
+                .add_outgoing_metadata(&tx.txid(), outgoing_meta_change, true);
         }
 
         // Update price if available

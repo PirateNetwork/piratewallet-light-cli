@@ -604,9 +604,14 @@ pub struct WalletTx {
     // All outgoing sapling sends to addresses outside this wallet
     pub outgoing_metadata: Vec<OutgoingTxMetadata>,
 
+    // All outgoing sapling sends to addresses outside this wallet
+    pub outgoing_metadata_change: Vec<OutgoingTxMetadata>,
+
     // Whether this TxID was downloaded from the server and scanned for Memos
     pub full_tx_scanned: bool,
 
+    // Value Balance of this Tx.
+    pub value_balance : u64,
     // Price of Zec when this Tx was created
     pub zec_price: Option<f64>,
 }
@@ -649,7 +654,9 @@ impl WalletTx {
             total_transparent_value_spent: 0,
             total_sapling_value_spent: 0,
             outgoing_metadata: vec![],
+            outgoing_metadata_change: vec![],
             full_tx_scanned: false,
+            value_balance: 0,
             zec_price: None,
         }
     }
@@ -681,8 +688,19 @@ impl WalletTx {
         // Outgoing metadata was only added in version 2
         let outgoing_metadata = Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r))?;
 
+        let outgoing_metadata_change = if version >= 6 {
+            Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r))?
+        } else {
+            vec![]
+        };
+
         let full_tx_scanned = reader.read_u8()? > 0;
 
+        let value_balance = if version >= 5 {
+            reader.read_u64::<LittleEndian>()?
+        } else {
+            0
+        };
         let zec_price = if version <= 4 {
             None
         } else {
@@ -710,7 +728,9 @@ impl WalletTx {
             total_sapling_value_spent,
             total_transparent_value_spent,
             outgoing_metadata,
+            outgoing_metadata_change,
             full_tx_scanned,
+            value_balance,
             zec_price,
         })
     }
@@ -736,7 +756,12 @@ impl WalletTx {
         // Write the outgoing metadata
         Vector::write(&mut writer, &self.outgoing_metadata, |w, om| om.write(w))?;
 
+        // Write the outgoing metadata_change
+        Vector::write(&mut writer, &self.outgoing_metadata_change, |w, om| om.write(w))?;
+
         writer.write_u8(if self.full_tx_scanned { 1 } else { 0 })?;
+
+        writer.write_u64::<LittleEndian>(self.value_balance)?;
 
         Optional::write(&mut writer, self.zec_price, |w, p| w.write_f64::<LittleEndian>(p))?;
 

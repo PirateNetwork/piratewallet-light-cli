@@ -789,7 +789,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
     pub async fn do_list_transactions(&self, include_memo_hex: bool) -> JsonValue {
         // Create a list of TransactionItems from wallet txns
-        let mut tx_list = self
+        let tx_list = self
             .wallet
             .txns
             .read()
@@ -799,111 +799,165 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             .flat_map(|(_k, v)| {
                 let mut txns: Vec<JsonValue> = vec![];
 
-                if v.total_sapling_value_spent + v.total_transparent_value_spent > 0 {
-                    // If money was spent, create a transaction. For this, we'll subtract
-                    // all the change notes + Utxos
-                    let total_change = v
-                        .notes
-                        .iter()
-                        .filter(|nd| nd.is_change)
-                        .map(|nd| nd.note.value)
-                        .sum::<u64>()
-                        + v.utxos.iter().map(|ut| ut.value).sum::<u64>();
+                //Get totals from outgoing metadata
+                let total_change: u64 = v.outgoing_metadata_change.iter().map(|u| u.value).sum::<u64>();
+                let total_send: u64 = v.outgoing_metadata.iter().map(|u| u.value).sum::<u64>();
 
-                    // Collect outgoing metadata
-                    let outgoing_json = v
-                        .outgoing_metadata
-                        .iter()
-                        .map(|om| {
-                            let mut o = object! {
-                                "address" => om.address.clone(),
-                                "value"   => om.value,
-                                "memo"    => LightWallet::<P>::memo_str(Some(om.memo.clone()))
+                //Get Change address from outgoing change metadata
+                let change_addresses = v.outgoing_metadata_change.iter()
+                    .map(|om| om.address.clone())
+                    .collect::<Vec<String>>();
+
+                // Collect incoming metadata
+                let mut incoming_json = v.notes.iter()
+                    .filter( |nd| !nd.is_change )
+                    .enumerate()
+                    .map ( |(_i, nd)| {
+                        let mut o = object! {
+                            "address"      => LightWallet::<P>::note_address(self.config.hrp_sapling_address(), nd),
+                            "value"       => nd.note.value as i64,
+                            "memo"         => LightWallet::<P>::memo_str(nd.memo.clone()),
+                        };
+
+                        if include_memo_hex {
+                            let memo_bytes: MemoBytes = nd.memo.clone().unwrap().into();
+                            o.insert("memohex", hex::encode(memo_bytes.as_slice())).unwrap();
+                        }
+
+                        return o;
+                    })
+                    .collect::<Vec<JsonValue>>();
+
+                let incoming_t_json = v.utxos.iter()
+                    .filter(|u| !change_addresses.contains(&u.address))
+                    .map( |uo| {
+                            let o = if include_memo_hex {
+                                object! {
+                                "address"       => uo.address.clone(),
+                                "value"         => uo.value.clone() as i64,
+                                "memo"          => None::<String>,
+                                "memohex"       => None::<String>
+                                }
+                            } else {
+                                object! {
+                                "address"       => uo.address.clone(),
+                                "value"         => uo.value.clone() as i64,
+                                "memo"          => None::<String>,
+                                }
                             };
 
-                            if include_memo_hex {
-                                let memo_bytes: MemoBytes = om.memo.clone().into();
-                                o.insert("memohex", hex::encode(memo_bytes.as_slice())).unwrap();
-                            }
-
                             return o;
-                        })
-                        .collect::<Vec<JsonValue>>();
-
-                    let block_height: u32 = v.block.into();
-                    txns.push(object! {
-                        "block_height" => block_height,
-                        "unconfirmed" => v.unconfirmed,
-                        "datetime"     => v.datetime,
-                        "txid"         => format!("{}", v.txid),
-                        "zec_price"    => v.zec_price.map(|p| (p * 100.0).round() / 100.0),
-                        "amount"       => total_change as i64
-                                            - v.total_sapling_value_spent as i64
-                                            - v.total_transparent_value_spent as i64,
-                        "outgoing_metadata" => outgoing_json,
-                    });
-                }
-
-                // For each sapling note that is not a change, add a Tx.
-                txns.extend(v.notes.iter().filter(|nd| !nd.is_change).enumerate().map(|(i, nd)| {
-                    let block_height: u32 = v.block.into();
-                    let mut o = object! {
-                        "block_height" => block_height,
-                        "unconfirmed" => v.unconfirmed,
-                        "datetime"     => v.datetime,
-                        "position"     => i,
-                        "txid"         => format!("{}", v.txid),
-                        "amount"       => nd.note.value as i64,
-                        "zec_price"    => v.zec_price.map(|p| (p * 100.0).round() / 100.0),
-                        "address"      => LightWallet::<P>::note_address(self.config.hrp_sapling_address(), nd),
-                        "memo"         => LightWallet::<P>::memo_str(nd.memo.clone())
-                    };
-
-                    if include_memo_hex {
-                        o.insert(
-                            "memohex",
-                            match &nd.memo {
-                                Some(m) => {
-                                    let memo_bytes: MemoBytes = m.into();
-                                    hex::encode(memo_bytes.as_slice())
-                                }
-                                _ => "".to_string(),
-                            },
-                        )
-                        .unwrap();
-                    }
-
-                    return o;
-                }));
-
-                // Get the total transparent received
-                let total_transparent_received = v.utxos.iter().map(|u| u.value).sum::<u64>();
-                if total_transparent_received > v.total_transparent_value_spent {
-                    // Create an input transaction for the transparent value as well.
-                    let block_height: u32 = v.block.into();
-                    txns.push(object! {
-                        "block_height" => block_height,
-                        "unconfirmed" => v.unconfirmed,
-                        "datetime"     => v.datetime,
-                        "txid"         => format!("{}", v.txid),
-                        "amount"       => total_transparent_received as i64 - v.total_transparent_value_spent as i64,
-                        "zec_price"    => v.zec_price.map(|p| (p * 100.0).round() / 100.0),
-                        "address"      => v.utxos.iter().map(|u| u.address.clone()).collect::<Vec<String>>().join(","),
-                        "memo"         => None::<String>
                     })
+                    .collect::<Vec<JsonValue>>();
+
+                for json in incoming_t_json {
+                    incoming_json.push(json.clone());
                 }
 
-                txns
-            })
-            .collect::<Vec<JsonValue>>();
+                // Collect incoming metadata change
+                let mut incoming_change_json = v.notes.iter()
+                    .filter( |nd| nd.is_change )
+                    .enumerate()
+                    .map ( |(_i, nd)|{
+                        let mut o = object! {
+                            "address"      => LightWallet::<P>::note_address(self.config.hrp_sapling_address(), nd),
+                            "value"        => nd.note.value as i64,
+                            "memo"         => LightWallet::<P>::memo_str(nd.memo.clone()),
+                        };
 
-        tx_list.sort_by(|a, b| {
-            if a["block_height"] == b["block_height"] {
-                a["txid"].as_str().cmp(&b["txid"].as_str())
-            } else {
-                a["block_height"].as_i32().cmp(&b["block_height"].as_i32())
-            }
-        });
+                        if include_memo_hex {
+                            let memo_bytes: MemoBytes = nd.memo.clone().unwrap().into();
+                            o.insert("memohex", hex::encode(memo_bytes.as_slice())).unwrap();
+                        }
+
+                        return o;
+                    })
+                    .collect::<Vec<JsonValue>>();
+
+                let incoming_t_change_json = v.utxos.iter()
+                    .filter(|u| change_addresses.contains(&u.address))
+                    .map( |uo|{
+                        let o = if include_memo_hex {
+                            object! {
+                            "address"       => uo.address.clone(),
+                            "value"         => uo.value.clone() as i64,
+                            "memo"          => None::<String>,
+                            "memohex"       => None::<String>
+                            }
+                        } else {
+                            object! {
+                            "address"       => uo.address.clone(),
+                            "value"         => uo.value.clone() as i64,
+                            "memo"          => None::<String>,
+                            }
+                        };
+
+                        return o;
+                    })
+                    .collect::<Vec<JsonValue>>();
+
+                for json in incoming_t_change_json {
+                    incoming_change_json.push(json.clone());
+                }
+
+                // Collect outgoing metadata
+                let outgoing_json = v.outgoing_metadata.iter()
+                    .map(|om| {
+                        let mut o = object!{
+                            "address" => om.address.clone(),
+                            "value"   => om.value,
+                            "memo"    => LightWallet::<P>::memo_str(Some(om.memo.clone())),
+                        };
+
+                        if include_memo_hex {
+                            let memo_bytes: MemoBytes = om.memo.clone().into();
+                            o.insert("memohex", hex::encode(memo_bytes.as_slice())).unwrap();
+                        }
+
+                        return o;
+                    })
+                    .collect::<Vec<JsonValue>>();
+
+                // Collect outgoing metadata change
+                let outgoing_change_json = v.outgoing_metadata_change.iter()
+                    .map(|om|{
+                        let mut o = object!{
+                            "address" => om.address.clone(),
+                            "value"   => om.value,
+                            "memo"    => LightWallet::<P>::memo_str(Some(om.memo.clone())),
+                        };
+
+                        if include_memo_hex {
+                            let memo_bytes: MemoBytes = om.memo.clone().into();
+                            o.insert("memohex", hex::encode(memo_bytes.as_slice())).unwrap();
+                        }
+
+                        return o;
+                    })
+                    .collect::<Vec<JsonValue>>();
+
+                let block_height: u32 = v.block.into();
+                txns.push(object! {
+                    "block_height" => block_height,
+                    "datetime"     => v.datetime,
+                    "txid"         => format!("{}", v.txid),
+                    "amount"       => total_change as i64
+                                        - v.total_sapling_value_spent as i64
+                                        - v.total_transparent_value_spent as i64,
+                    "fee"          => v.total_sapling_value_spent as i64
+                                        + v.total_transparent_value_spent as i64
+                                        - total_change as i64
+                                        - total_send as i64,
+                    "unconfirmed"    => false,
+                    "incoming_metadata" => incoming_json,
+                    "incoming_metadata_change" => incoming_change_json,
+                    "outgoing_metadata" => outgoing_json,
+                    "outgoing_metadata_change" => outgoing_change_json,
+
+                });
+            txns
+        })
+        .collect::<Vec<JsonValue>>();
 
         JsonValue::Array(tx_list)
     }
