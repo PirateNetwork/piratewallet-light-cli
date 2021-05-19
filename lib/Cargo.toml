@@ -9,6 +9,7 @@ embed_params = []
 
 [dependencies]
 base58 = "0.1.0"
+base64 = "0.12.3"
 log = "0.4"
 log4rs = "0.8.3"
 dirs = "2.0.2"
@@ -18,7 +19,7 @@ protobuf = "2"
 byteorder = "1"
 json = "0.12.0"
 tiny-bip39 = "0.6.2"
-secp256k1 = "=0.15.0"
+secp256k1 = "=0.19.0"
 sha2 = "0.8.0"
 ripemd160 = "0.8.0"
 lazy_static = "1.2.0"
@@ -30,6 +31,7 @@ libflate = "0.1"
 subtle = "2"
 threadpool = "1.8.0"
 num_cpus = "1.12.0"
+rayon = "1.5"
 
 tonic = { version = "0.2.1", features = ["tls", "tls-roots"] }
 bytes = "0.4"
@@ -44,37 +46,29 @@ serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
 reqwest = { version = "0.10.8", features = ["blocking", "json"] }
-
-[dependencies.bellman]
-git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
-default-features = false
-features = ["groth16", "multicore"]
-
-[dependencies.pairing]
-git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
+bellman = { version = "0.8.1", default-features = false, features = ["groth16"] }
+pairing = "0.18.0"
+ff = "0.8"
+jubjub = "0.5.1"
+bls12_381 = "0.3.1"
+group = "0.8"
 
 [dependencies.zcash_client_backend]
 git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
-default-features = false
+rev = "9ab98b0cfa6343144bf8f1e568e9dc233d4ecfff"
+#default-features = false
 
 [dependencies.zcash_primitives]
 git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
+rev = "9ab98b0cfa6343144bf8f1e568e9dc233d4ecfff"
 default-features = false
 features = ["transparent-inputs"]
 
 [dependencies.zcash_proofs]
 git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
-default-features = false
-
-[dependencies.ff]
-git = "https://github.com/piratenetwork/librustzcash.git"
-rev = "627bcc5d8ab43f1f2ce0d4dc603d0517eb61c55d"
-features = ["ff_derive"]
+rev = "9ab98b0cfa6343144bf8f1e568e9dc233d4ecfff"
+features = ["multicore"]
+#default-features = false
 
 [build-dependencies]
 tonic-build = "0.1.1"

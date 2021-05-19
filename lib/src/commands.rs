@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use json::{object};
 
-use crate::lightclient::LightClient;
+use crate::{lightclient::LightClient, lightwallet::{self, fee, utils}};
+use crate::lightwallet::LightWallet;
 
 pub trait Command {
     fn help(&self) -> String;
@@ -80,6 +81,57 @@ impl Command for SyncStatusCommand {
                               "synced_blocks" => status.synced_blocks,
                               "total_blocks" => status.total_blocks }
         }.pretty(2)
+    }
+}
+
+struct VerifyCommand {}
+impl Command for VerifyCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Verify the current blocks from the latest checkpoint.");
+        h.push("Usage:");
+        h.push("verify");
+        h.push("");
+        h.push("This command will download all blocks since the last checkpoint and make sure we have the currect block at the tip.");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Verify from the latest checkpoint".to_string()
+    }
+
+    fn exec(&self, _args: &[&str], lightclient: &LightClient) -> String {
+        match lightclient.do_verify_from_last_checkpoint() {
+            Ok(v) => {
+                let j = object!{ "result" => v };
+                j.pretty(2)
+            },
+            Err(e) => e
+        }
+    }
+}
+
+struct SendProgressCommand {}
+impl Command for SendProgressCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Get the progress of any send transactions that are currently computing");
+        h.push("Usage:");
+        h.push("sendprogress");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Get the progress of any send transactions that are currently computing".to_string()
+    }
+
+    fn exec(&self, _args: &[&str], lightclient: &LightClient) -> String {
+        match lightclient.do_send_progress() {
+            Ok(j) => j.pretty(2),
+            Err(e) => e
+        }
     }
 }
 
@@ -198,6 +250,28 @@ impl Command for InfoCommand {
 
     fn exec(&self, _args: &[&str], lightclient: &LightClient) -> String {
         lightclient.do_info()
+    }
+}
+
+
+struct ZecPriceCommand {}
+impl Command for ZecPriceCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Get the latest ZEC price in the wallet's currency (USD)");
+        h.push("Usage:");
+        h.push("zecprice");
+        h.push("");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Get the latest ZEC price in the wallet's currency (USD)".to_string()
+    }
+
+    fn exec(&self, _args: &[&str], lightclient: &LightClient) -> String {
+        lightclient.do_zec_price()
     }
 }
 
@@ -439,6 +513,137 @@ impl Command for LockCommand {
     }
 }
 
+// struct ShieldCommand {}
+// impl Command for ShieldCommand {
+//     fn help(&self) -> String {
+//         let mut h = vec![];
+//         h.push("Shield all your transparent funds");
+//         h.push("Usage:");
+//         h.push("shield [optional address]");
+//         h.push("");
+//         h.push("NOTE: The fee required to send this transaction (currently ZEC 0.0001) is additionally deducted from your balance.");
+//         h.push("Example:");
+//         h.push("shield");
+//         h.push("");
+//
+//         h.join("\n")
+//     }
+//
+//     fn short_help(&self) -> String {
+//         "Shield your transparent ZEC into a sapling address".to_string()
+//     }
+//
+//     fn exec(&self, args: &[&str], lightclient: &LightClient) -> String {
+//         // Parse the address or amount
+//         let address = if args.len() > 0 {
+//             Some(args[0].to_string())
+//         } else {
+//             None
+//         };
+//
+//         match lightclient.do_shield(address) {
+//             Ok(txid) => { object!{ "txid" => txid } },
+//             Err(e)   => { object!{ "error" => e } }
+//         }.pretty(2)
+//     }
+// }
+
+struct EncryptMessageCommand {}
+impl Command for EncryptMessageCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Encrypt a memo to be sent to a z-address offline");
+        h.push("Usage:");
+        h.push("encryptmessage <address> \"memo\"");
+        h.push("OR");
+        h.push("encryptmessage \"{'address': <address>, 'memo': <memo>}\" ");
+        h.push("");
+        h.push("NOTE: This command only returns the encrypted payload. It does not broadcast it. You are expected to send the encrypted payload to the recipient offline");
+        h.push("Example:");
+        h.push("encryptmessage ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d \"Hello from the command line\"");
+        h.push("");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Encrypt a memo to be sent to a z-address offline".to_string()
+    }
+
+    fn exec(&self, args: &[&str], lightclient: &LightClient) -> String {
+        if args.len() < 1 || args.len() > 3 {
+            return self.help();
+        }
+
+        // Check for a single argument that can be parsed as JSON
+        let (to, memo) = if args.len() == 1 {
+            let arg_list = args[0];
+            let j = match json::parse(&arg_list) {
+                Ok(j)  => j,
+                Err(e) => {
+                    let es = format!("Couldn't understand JSON: {}", e);
+                    return format!("{}\n{}", es, self.help());
+                }
+            };
+
+            if !j.has_key("address") || !j.has_key("memo") {
+                let es = format!("Need 'address' and 'memo'\n");
+                return format!("{}\n{}", es, self.help());
+            }
+
+            let memo = utils::interpret_memo_string(j["memo"].as_str().unwrap().to_string());
+            if memo.is_err() {
+                return format!("{}\n{}", memo.err().unwrap(), self.help());
+            }
+            let to = j["address"].as_str().unwrap().to_string();
+
+            (to, memo.unwrap())
+        } else if args.len() == 2 {
+            let to = args[0].to_string();
+
+            let memo = utils::interpret_memo_string(args[1].to_string());
+            if memo.is_err() {
+                return format!("{}\n{}", memo.err().unwrap(), self.help());
+            }
+
+            (to, memo.unwrap())
+        } else {
+            return  format!("Wrong number of arguments. Was expecting 1 or 2\n{}", self.help());
+        };
+
+        lightclient.do_encrypt_message(to, memo).pretty(2)
+    }
+}
+
+
+
+struct DecryptMessageCommand {}
+impl Command for DecryptMessageCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Attempt to decrypt a message with all the view keys in the wallet.");
+        h.push("Usage:");
+        h.push("decryptmessage \"encrypted_message_base64\"");
+        h.push("");
+        h.push("Example:");
+        h.push("decryptmessage RW5jb2RlIGFyYml0cmFyeSBvY3RldHMgYXMgYmFzZTY0LiBSZXR1cm5zIGEgU3RyaW5nLg==");
+        h.push("");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Attempt to decrypt a message with all the view keys in the wallet.".to_string()
+    }
+
+    fn exec(&self, args: &[&str], lightclient: &LightClient) -> String {
+        if args.len() != 1 {
+            return self.help();
+        }
+
+        lightclient.do_decrypt_message(args[0].to_string()).pretty(2)
+    }
+}
 
 struct SendCommand {}
 impl Command for SendCommand {
@@ -448,7 +653,7 @@ impl Command for SendCommand {
         h.push("Usage:");
         h.push("send '{'input': <address>, 'output': [{'address': <address>, 'amount': <amount in zatoshis>, 'memo': <optional memo>}, ...]}");
         h.push("");
-        h.push("NOTE: The fee required to send this transaction (currently ZEC 0.0001) is additionally detected from your balance.");
+        h.push("NOTE: The fee required to send this transaction (currently ZEC 0.0001) is additionally deducted from your balance.");
         h.push("Example:");
         h.push("send '{\"input\":\"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"output\": [{ \"address\": \"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"amount\": 200000, \"memo\": \"Hello from the command line\"}]}'");
         h.push("");
@@ -699,10 +904,10 @@ impl Command for ImportCommand {
                 Ok(b) => b,
                 Err(_) => return format!("Couldn't parse {} as birthday. Please specify an integer. Ok to use '0'", args[1]),
             };
-    
+
             let rescan = if args.len() == 3 {
-                if args[2] == "norescan" || args[2] == "false" || args[2] == "no" { 
-                    false 
+                if args[2] == "norescan" || args[2] == "false" || args[2] == "no" {
+                    false
                 } else {
                     return format!("Couldn't undestand the argument '{}'. Please pass 'norescan' to prevent rescanning the wallet", args[2]);
                 }
@@ -751,6 +956,41 @@ impl Command for HeightCommand {
     }
 }
 
+struct DefaultFeeCommand {}
+impl Command for DefaultFeeCommand {
+    fn help(&self)  -> String {
+        let mut h = vec![];
+        h.push("Returns the default fee in zats for outgoing transactions");
+        h.push("Usage:");
+        h.push("defaultfee <optional_block_height>");
+        h.push("");
+        h.push("Example:");
+        h.push("defaultfee");
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Returns the default fee in zats for outgoing transactions".to_string()
+    }
+
+    fn exec(&self, args: &[&str], lightclient: &LightClient) -> String {
+        if args.len() > 1 {
+            return format!("Was expecting at most 1 argument\n{}", self.help());
+        }
+
+        let height = if args.len() == 1 {
+            match args[0].parse::<i32>() {
+                Ok(h) => h,
+                Err(e) => return format!("Couldn't parse height {}", e)
+            }
+        } else {
+            lightclient.last_scanned_height() as i32
+        };
+
+        let j = object! { "defaultfee" => fee::get_default_fee(height)};
+        j.pretty(2)
+    }
+}
 
 struct NewAddressCommand {}
 impl Command for NewAddressCommand {
@@ -849,26 +1089,34 @@ pub fn get_commands() -> Box<HashMap<String, Box<dyn Command>>> {
     map.insert("sync".to_string(),              Box::new(SyncCommand{}));
     map.insert("syncstatus".to_string(),        Box::new(SyncStatusCommand{}));
     map.insert("encryptionstatus".to_string(),  Box::new(EncryptionStatusCommand{}));
+    map.insert("encryptmessage".to_string(),    Box::new(EncryptMessageCommand{}));
+    map.insert("decryptmessage".to_string(),    Box::new(DecryptMessageCommand{}));
     map.insert("rescan".to_string(),            Box::new(RescanCommand{}));
     map.insert("clear".to_string(),             Box::new(ClearCommand{}));
     map.insert("help".to_string(),              Box::new(HelpCommand{}));
     map.insert("balance".to_string(),           Box::new(BalanceCommand{}));
     map.insert("addresses".to_string(),         Box::new(AddressCommand{}));
     map.insert("height".to_string(),            Box::new(HeightCommand{}));
+    map.insert("sendprogress".to_string(),      Box::new(SendProgressCommand{}));
     map.insert("import".to_string(),            Box::new(ImportCommand{}));
     map.insert("export".to_string(),            Box::new(ExportCommand{}));
     map.insert("info".to_string(),              Box::new(InfoCommand{}));
+    map.insert("zecprice".to_string(),          Box::new(ZecPriceCommand{}));
     map.insert("send".to_string(),              Box::new(SendCommand{}));
+    // map.insert("shield".to_string(),            Box::new(ShieldCommand{}));
     map.insert("save".to_string(),              Box::new(SaveCommand{}));
     map.insert("quit".to_string(),              Box::new(QuitCommand{}));
     map.insert("list".to_string(),              Box::new(TransactionsCommand{}));
     map.insert("notes".to_string(),             Box::new(NotesCommand{}));
     map.insert("new".to_string(),               Box::new(NewAddressCommand{}));
+    map.insert("defaultfee".to_string(),        Box::new(DefaultFeeCommand{}));
     map.insert("seed".to_string(),              Box::new(SeedCommand{}));
     map.insert("encrypt".to_string(),           Box::new(EncryptCommand{}));
     map.insert("decrypt".to_string(),           Box::new(DecryptCommand{}));
     map.insert("unlock".to_string(),            Box::new(UnlockCommand{}));
     map.insert("lock".to_string(),              Box::new(LockCommand{}));
+
+    map.insert("verify".to_string(),            Box::new(VerifyCommand{}));
 
     Box::new(map)
 }
