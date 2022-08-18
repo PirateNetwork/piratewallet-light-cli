@@ -383,7 +383,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                 for vout in &t_bundle.vout {
                     let taddr = keys.read().await.address_from_pubkeyhash(vout.script_pubkey.address());
 
-                    if taddr.is_some() && !taddrs_set.contains(taddr.as_ref().unwrap()) {
+                    // if taddr.is_some() && !taddrs_set.contains(taddr.as_ref().unwrap()) {
+                    if taddr.is_some() {
                         outgoing_metadatas.push(OutgoingTxMetadata {
                             address: taddr.unwrap(),
                             value: vout.value.into(),
