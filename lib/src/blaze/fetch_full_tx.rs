@@ -349,7 +349,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                                 match Memo::try_from(memo_bytes) {
                                     Err(_) => None,
                                     Ok(memo) => {
-                                        if z_addresses.contains(&address) && memo == Memo::Empty {
+                                        if memo == Memo::Empty {
                                             None
                                         } else {
                                             Some(OutgoingTxMetadata {
