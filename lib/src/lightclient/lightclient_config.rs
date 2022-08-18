@@ -22,9 +22,9 @@ use zcash_primitives::{
 
 use crate::{grpc_connector::GrpcConnector, lightclient::checkpoints};
 
-pub const DEFAULT_SERVER: &str = "https://lwdv3.zecwallet.co";
-pub const WALLET_NAME: &str = "zecwallet-light-wallet.dat";
-pub const LOGFILE_NAME: &str = "zecwallet-light-wallet.debug.log";
+pub const DEFAULT_SERVER: &str = "https://lightwalletd.pirate.black:443";
+pub const WALLET_NAME: &str    = "arrwallet-light-wallet.dat";
+pub const LOGFILE_NAME: &str   = "arrwallet-light-wallet.debug.log";
 pub const ANCHOR_OFFSET: [u32; 5] = [4, 0, 0, 0, 0];
 pub const MAX_REORG: usize = 100;
 pub const GAP_RULE_UNUSED_ADDRESSES: usize = if cfg!(any(target_os = "ios", target_os = "android")) {
@@ -67,12 +67,12 @@ impl Parameters for UnitTestNetwork {
         constants::mainnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
-        constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX
+    fn b58_pubkey_address_prefix(&self) -> &[u8] {
+        &constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
-        constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX
+    fn b58_script_address_prefix(&self) -> &[u8] {
+        &constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX
     }
 }
 
@@ -344,11 +344,11 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
         self.params.hrp_sapling_extended_full_viewing_key()
     }
 
-    pub fn base58_pubkey_address(&self) -> [u8; 2] {
+    pub fn base58_pubkey_address(&self) -> &[u8] {
         self.params.b58_pubkey_address_prefix()
     }
 
-    pub fn base58_script_address(&self) -> [u8; 2] {
+    pub fn base58_script_address(&self) -> &[u8] {
         self.params.b58_script_address_prefix()
     }
 
