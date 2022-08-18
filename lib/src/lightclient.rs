@@ -1535,7 +1535,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     //     result.map(|(txid, _)| txid)
     // }
 
-    pub async fn do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
+    pub async fn do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>, fee: &u64) -> Result<String, String> {
         info!("Creating transaction");
 
         // println!("BranchID {:x}", branch_id);
@@ -1547,7 +1547,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             let prover = LocalTxProver::from_bytes(&sapling_spend, &sapling_output);
 
             self.wallet
-                .send_to_address(prover, false, from, addrs, |txbytes| {
+                .send_to_address(prover, false, from, addrs, fee, |txbytes| {
                     GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
                 })
                 .await
@@ -1557,7 +1557,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     }
 
     #[cfg(test)]
-    pub async fn test_do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>) -> Result<String, String> {
+    pub async fn test_do_send(&self, from: &str, addrs: Vec<(&str, u64, Option<String>)>, fee: &u64) -> Result<String, String> {
         info!("Creating transaction");
 
         let result = {
@@ -1565,7 +1565,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             let prover = crate::blaze::test_utils::FakeTxProver {};
 
             self.wallet
-                .send_to_address(prover, false, from, addrs, |txbytes| {
+                .send_to_address(prover, false, from, addrs, fee, |txbytes| {
                     GrpcConnector::send_transaction(self.get_server_uri(), txbytes)
                 })
                 .await

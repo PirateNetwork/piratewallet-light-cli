@@ -1118,6 +1118,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         transparent_only: bool,
         from: &str,
         tos: Vec<(&str, u64, Option<String>)>,
+        fee: &u64,
         broadcast_fn: F,
     ) -> Result<(String, Vec<u8>), String>
     where
@@ -1129,7 +1130,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
         // Call the internal function
         match self
-            .send_to_address_internal(prover, transparent_only, from, tos, broadcast_fn)
+            .send_to_address_internal(prover, transparent_only, from, tos, fee, broadcast_fn)
             .await
         {
             Ok((txid, rawtx)) => {
@@ -1149,6 +1150,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         _transparent_only: bool,
         from: &str,
         tos: Vec<(&str, u64, Option<String>)>,
+        fee: &u64,
         broadcast_fn: F,
     ) -> Result<(String, Vec<u8>), String>
     where
@@ -1192,7 +1194,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
         // Select notes to cover the target value
         println!("{}: Selecting notes", now() - start_time);
-        let target_value = (Amount::from_u64(total_value).unwrap() + DEFAULT_FEE).unwrap();
+        let target_value = (Amount::from_u64(total_value).unwrap() + Amount::from_u64(*fee).unwrap()).unwrap();
         let target_height = match self.get_target_height().await {
             Some(h) => BlockHeight::from_u32(h),
             None => return Err("No blocks in wallet to target, please sync first".to_string()),
@@ -1201,6 +1203,9 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         let (progress_notifier, progress_notifier_rx) = mpsc::channel();
         let mut builder = Builder::new(self.config.get_params().clone(), target_height);
         builder.with_progress_notifier(progress_notifier);
+
+        //set fee
+        builder.set_fee(Amount::from_u64(*fee).unwrap());
 
         // Create a map from address -> sk for all taddrs, so we can spend from the
         // right address

@@ -751,7 +751,16 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SendComman
                     return format!("Couldn't parse argument as array\n{}", Command::<P>::help(self));
                 }
 
-                let fee = u64::from(DEFAULT_FEE);
+                //Check for a fee key and convert to u64
+                let fee: u64 = if json_args.has_key("fee") {
+                    match json_args["fee"].as_u64() {
+                        Some(f) => f.clone(),
+                        None => DEFAULT_FEE.try_into().unwrap()
+                    }
+                } else {
+                    DEFAULT_FEE.try_into().unwrap()
+                };
+
                 let all_zbalance = lightclient.wallet.verified_zbalance(None).await.checked_sub(fee);
 
                 //Check array for manadantory address and amount keys
@@ -780,7 +789,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SendComman
 
 
                 let tos = send_args.iter().map(|(a, v, m)| (a.as_str(), *v, m.clone()) ).collect::<Vec<_>>();
-                match lightclient.do_send(from, tos).await {
+                match lightclient.do_send(from, tos, &fee).await {
                     Ok(txid) => { object!{ "txid" => txid } },
                     Err(e)   => { object!{ "error" => e } }
                 }.pretty(2)
