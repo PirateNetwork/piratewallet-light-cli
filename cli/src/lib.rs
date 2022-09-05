@@ -6,7 +6,7 @@ use log::{error, info};
 
 use zecwalletlitelib::lightclient::lightclient_config::LightClientConfig;
 use zecwalletlitelib::{commands, lightclient::LightClient};
-use zecwalletlitelib::{PirateNetwork, Parameters};
+use zecwalletlitelib::{MainNetwork, Parameters};
 
 pub mod version;
 
@@ -78,7 +78,7 @@ pub fn startup(
     print_updates: bool,
 ) -> io::Result<(Sender<(String, Vec<String>)>, Receiver<String>)> {
     // Try to get the configuration
-    let (config, latest_block_height) = LightClientConfig::create(PirateNetwork, server.clone())?;
+    let (config, latest_block_height) = LightClientConfig::create(MainNetwork, server.clone())?;
 
     let lightclient = match seed {
         Some(phrase) => Arc::new(LightClient::new_from_phrase(phrase, &config, birthday, false)?),
@@ -233,13 +233,13 @@ pub fn command_loop<P: Parameters + Send + Sync + 'static>(
 
 pub fn attempt_recover_seed(_password: Option<String>) {
     // Create a Light Client Config in an attempt to recover the file.
-    let _config = LightClientConfig::<PirateNetwork> {
+    let _config = LightClientConfig::<MainNetwork> {
         server: "0.0.0.0:0".parse().unwrap(),
         chain_name: "main".to_string(),
         sapling_activation_height: 0,
         anchor_offset: [0u32; 5],
         monitor_mempool: false,
         data_dir: None,
-        params: PirateNetwork,
+        params: MainNetwork,
     };
 }

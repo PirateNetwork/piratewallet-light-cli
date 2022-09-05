@@ -4,7 +4,7 @@ use zecwallet_cli::{
 };
 use zecwalletlitelib::{
     lightclient::{self, lightclient_config::LightClientConfig},
-    PirateNetwork,
+    MainNetwork,
 };
 
 pub fn main() {
@@ -47,7 +47,7 @@ pub fn main() {
         }
     };
 
-    let server = LightClientConfig::<PirateNetwork>::get_server_or_default(maybe_server);
+    let server = LightClientConfig::<MainNetwork>::get_server_or_default(maybe_server);
 
     // Test to make sure the server has all of scheme, host and port
     if server.scheme_str().is_none() || server.host().is_none() || server.port().is_none() {
