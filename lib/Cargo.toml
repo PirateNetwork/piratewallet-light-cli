@@ -48,12 +48,19 @@ group = "0.12"
 
 rust-embed = { version = "6.3.0", features = ["debug-embed"] }
 
-zcash_primitives = { git = "https://github.com/piratenetwork/librustzcash", rev = "f0e0282330a595761e82190b5b7a89de192572cd", features = ["transparent-inputs"] }
-# zcash_primitives = { path = "../../librustzcash/zcash_primitives", features = ["transparent-inputs"] }
-zcash_client_backend = { git = "https://github.com/piratenetwork/librustzcash", rev = "f0e0282330a595761e82190b5b7a89de192572cd"}
-zcash_proofs = { git = "https://github.com/piratenetwork/librustzcash", rev = "f0e0282330a595761e82190b5b7a89de192572cd", features = ["multicore"]}
-zcash_encoding = { git = "https://github.com/piratenetwork/librustzcash", rev = "f0e0282330a595761e82190b5b7a89de192572cd"}
-zcash_note_encryption = { git = "https://github.com/piratenetwork/librustzcash", rev = "f0e0282330a595761e82190b5b7a89de192572cd", features = ["pre-zip-212"]}
+zcash_primitives = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["transparent-inputs"] }
+zcash_client_backend = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e"}
+zcash_proofs = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["multicore"]}
+zcash_encoding = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e"}
+zcash_note_encryption = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["pre-zip-212"]}
+
+#Test local changes to librustzcash
+# zcash_primitives = { path = '../../librustzcash/zcash_primitives' , features = ["transparent-inputs"] }
+# zcash_client_backend = { path = '../../librustzcash/zcash_client_backend' }
+# zcash_proofs = { path = '../../librustzcash/zcash_proofs' , features = ["multicore"]}
+# zcash_encoding = { path = '../../librustzcash/components/zcash_encoding'}
+# zcash_note_encryption = { path = '../../librustzcash/components/zcash_note_encryption' , features = ["pre-zip-212"]}
+
 
 [dev-dependencies]
 portpicker = "0.1.1"
