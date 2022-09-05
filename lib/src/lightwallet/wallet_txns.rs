@@ -321,10 +321,15 @@ impl WalletTxns {
 
     // Check this transaction to see if it is an outgoing transaction, and if it is, mark all recieved notes in this
     // transction as change. i.e., If any funds were spent in this transaction, all recieved notes are change notes.
-    pub fn check_notes_mark_change(&mut self, txid: &TxId) {
+    pub fn check_notes_mark_change(&mut self, txid: &TxId, zaddrs: Vec<PaymentAddress>) {
+
         if self.total_funds_spent_in(txid) > 0 {
             self.current.get_mut(txid).map(|wtx| {
-                wtx.notes.iter_mut().for_each(|n| {
+                wtx.notes.iter_mut()
+                    .filter(|nd|
+                        zaddrs.contains(&nd.extfvk.fvk.vk.to_payment_address(nd.diversifier).unwrap())
+                     )
+                    .for_each(|n| {
                     n.is_change = true;
                 })
             });
@@ -385,18 +390,22 @@ impl WalletTxns {
             }
         }
 
-        // Since this Txid has spent some funds, output notes in this Tx that are sent to us are actually change.
-        self.check_notes_mark_change(&txid);
+        //Get list of addresses spent from
+        let mut zaddrs: Vec<PaymentAddress> = Vec::new();
 
         // Mark the source note's nullifier as spent
         if !unconfirmed {
             let wtx = self.current.get_mut(&source_txid).expect("Txid should be present");
 
             wtx.notes.iter_mut().find(|n| n.nullifier == nullifier).map(|nd| {
+                zaddrs.push(nd.extfvk.fvk.vk.to_payment_address(nd.diversifier).unwrap());
                 // Record the spent height
                 nd.spent = Some((txid, height.into()));
             });
         }
+
+        // Since this Txid has spent some funds, output notes in this Tx that are sent to us are actually change.
+        self.check_notes_mark_change(&txid, zaddrs);
     }
 
     pub fn add_taddr_spent(
@@ -409,8 +418,6 @@ impl WalletTxns {
     ) {
         let wtx = self.get_or_create_tx(&txid, BlockHeight::from(height), unconfirmed, timestamp);
         wtx.total_transparent_value_spent = total_transparent_value_spent;
-
-        self.check_notes_mark_change(&txid);
     }
 
     pub fn mark_txid_utxo_spent(
