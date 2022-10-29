@@ -10,7 +10,7 @@ use zcash_primitives::{
     sapling::note_encryption::SaplingDomain,
 };
 
-tonic::include_proto!("cash.z.wallet.sdk.rpc");
+tonic::include_proto!("pirate.wallet.sdk.rpc");
 
 impl CompactBlock {
     /// Returns the [`BlockHash`] for this block.
