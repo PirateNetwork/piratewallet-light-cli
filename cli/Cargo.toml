@@ -14,5 +14,5 @@ http = "0.2"
 byteorder = "1"
 tiny-bip39 = "0.6.2"
 
-zecwalletlitelib = { path = "../lib/" }
+piratewalletlitelib = { path = "../lib/" }
 

@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use log::{error, info};
 
-use zecwalletlitelib::lightclient::lightclient_config::LightClientConfig;
-use zecwalletlitelib::{commands, lightclient::LightClient};
-use zecwalletlitelib::{MainNetwork, Parameters};
+use piratewalletlitelib::lightclient::lightclient_config::LightClientConfig;
+use piratewalletlitelib::{commands, lightclient::LightClient};
+use piratewalletlitelib::{MainNetwork, Parameters};
 
 pub mod version;
 

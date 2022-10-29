@@ -3714,11 +3714,11 @@ dependencies = [
  "rustyline",
  "shellwords",
  "tiny-bip39 0.6.2",
- "zecwalletlitelib",
+ "piratewalletlitelib",
 ]
 
 [[package]]
-name = "zecwalletlitelib"
+name = "piratewalletlitelib"
 version = "0.1.0"
 dependencies = [
  "arr_macro",
