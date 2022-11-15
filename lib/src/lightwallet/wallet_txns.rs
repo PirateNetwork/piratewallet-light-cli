@@ -592,19 +592,18 @@ impl WalletTxns {
         });
     }
 
-    pub fn add_outgoing_metadata(&mut self, txid: &TxId, outgoing_metadata: Vec<OutgoingTxMetadata>, change: bool) {
+    pub fn add_outgoing_metadata(&mut self, txid: &TxId, outgoing_metadata: Vec<OutgoingTxMetadata>) {
         if let Some(wtx) = self.current.get_mut(txid) {
             // This is n^2 search, but this is likely very small struct, limited by the protocol, so...
-            let new_omd: Vec<_> = outgoing_metadata
+
+            // Add new outgoing meta to the transaction
+            let omd: Vec<_> = outgoing_metadata
                 .into_iter()
                 .filter(|om| wtx.outgoing_metadata.iter().find(|o| **o == *om).is_none())
                 .collect();
 
-            if !change {
-                wtx.outgoing_metadata.extend(new_omd);
-            } else {
-                wtx.outgoing_metadata_change.extend(new_omd);
-            }
+            wtx.outgoing_metadata.extend(omd);
+
         } else {
             error!("TxId {} should be present while adding metadata, but wasn't", txid);
         }

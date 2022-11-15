@@ -34,7 +34,7 @@ use zcash_primitives::{
     block::BlockHash,
     consensus::{self, BlockHeight, BranchId},
     memo::{Memo, MemoBytes},
-    transaction::{components::amount::DEFAULT_FEE, Transaction, TxId},
+    transaction::{Transaction, TxId},
 };
 use zcash_proofs::prover::LocalTxProver;
 
@@ -788,31 +788,42 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     }
 
     pub async fn do_list_transactions(&self, include_memo_hex: bool) -> JsonValue {
-        // Create a list of TransactionItems from wallet txns
-        let tx_list = self
+
+        let wallet_txns = &self
             .wallet
             .txns
             .read()
             .await
-            .current
+            .current;
+
+        // Create a list of TransactionItems from wallet txns
+        let tx_list = &wallet_txns
             .iter()
             .flat_map(|(_k, v)| {
                 let mut txns: Vec<JsonValue> = vec![];
 
-                //Get totals from outgoing metadata
-                let total_change: u64 = v.outgoing_metadata_change.iter().map(|u| u.value).sum::<u64>();
-                let total_send: u64 = v.outgoing_metadata.iter().map(|u| u.value).sum::<u64>();
+                //TODO: - Add t-address support for change
+                //Collect the z_addresses spent from this transaction
+                let mut change_addresses: HashSet<String>= HashSet::new();
+                let hrp: &str = self.config.hrp_sapling_address().clone();
 
-                //Get Change address from outgoing change metadata
-                let change_addresses = v.outgoing_metadata_change.iter()
-                    .map(|om| om.address.clone())
-                    .collect::<Vec<String>>();
+                // Collect addresses of change notes
+                v.notes
+                    .iter()
+                    .filter(|nd| nd.is_change)
+                    .for_each(|nd| {
+                        change_addresses.insert(LightWallet::<P>::note_address(hrp, nd).unwrap());
+                });
+
+                //Get totals from incoming and outgoing metadata
+                let total_send: u64 = v.outgoing_metadata.iter().map(|u| u.value).sum::<u64>();
+                let total_shielded_received: u64 = v.notes.iter().map(|u| u.note.value).sum::<u64>();
+                let total_transparent_received: u64 = v.utxos.iter().map(|u| u.value).sum::<u64>();
 
                 // Collect incoming metadata
                 let mut incoming_json = v.notes.iter()
-                    .filter( |nd| !nd.is_change )
-                    .enumerate()
-                    .map ( |(_i, nd)| {
+                    .filter(|nd| !nd.is_change)
+                    .map ( |nd| {
                         let mut o = object! {
                             "address"      => LightWallet::<P>::note_address(self.config.hrp_sapling_address(), nd),
                             "value"       => nd.note.value as i64,
@@ -856,9 +867,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
                 // Collect incoming metadata change
                 let mut incoming_change_json = v.notes.iter()
-                    .filter( |nd| nd.is_change )
-                    .enumerate()
-                    .map ( |(_i, nd)|{
+                    .filter(|nd| nd.is_change)
+                    .map ( |nd|{
                         let mut o = object! {
                             "address"      => LightWallet::<P>::note_address(self.config.hrp_sapling_address(), nd),
                             "value"        => nd.note.value as i64,
@@ -902,6 +912,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
                 // Collect outgoing metadata
                 let outgoing_json = v.outgoing_metadata.iter()
+                    .filter(|md| !change_addresses.contains(&md.address))
                     .map(|om| {
                         let mut o = object!{
                             "address" => om.address.clone(),
@@ -919,7 +930,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                     .collect::<Vec<JsonValue>>();
 
                 // Collect outgoing metadata change
-                let outgoing_change_json = v.outgoing_metadata_change.iter()
+                let outgoing_change_json = v.outgoing_metadata.iter()
+                    .filter(|md| change_addresses.contains(&md.address))
                     .map(|om|{
                         let mut o = object!{
                             "address" => om.address.clone(),
@@ -941,12 +953,11 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                     "block_height" => block_height,
                     "datetime"     => v.datetime,
                     "txid"         => format!("{}", v.txid),
-                    "amount"       => total_change as i64
-                                        - v.total_sapling_value_spent as i64
-                                        - v.total_transparent_value_spent as i64,
+                    "amount"       => total_transparent_received as i64
+                                      + total_shielded_received as i64
+                                      - total_send as i64,
                     "fee"          => v.total_sapling_value_spent as i64
                                         + v.total_transparent_value_spent as i64
-                                        - total_change as i64
                                         - total_send as i64,
                     "unconfirmed"    => false,
                     "incoming_metadata" => incoming_json,
@@ -959,7 +970,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         })
         .collect::<Vec<JsonValue>>();
 
-        JsonValue::Array(tx_list)
+        JsonValue::Array(tx_list.to_vec())
     }
 
     /// Create a new address, deriving it from the seed.

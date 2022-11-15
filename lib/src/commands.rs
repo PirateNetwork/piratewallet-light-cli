@@ -1,4 +1,3 @@
-use crate::lightwallet::keys::Keys;
 use crate::lightwallet::MemoDownloadOption;
 use crate::{lightclient::LightClient, lightwallet::utils};
 use json::object;

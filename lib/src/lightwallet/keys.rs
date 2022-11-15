@@ -20,6 +20,7 @@ use zcash_primitives::{
     legacy::TransparentAddress,
     sapling::PaymentAddress,
     zip32::{ChildIndex, ExtendedFullViewingKey, ExtendedSpendingKey},
+    sapling::Diversifier,
 };
 
 use crate::{
@@ -29,7 +30,7 @@ use crate::{
 
 use super::{
     wallettkey::{WalletTKey, WalletTKeyType},
-    walletzkey::{WalletZKey, WalletZKeyType},
+    walletzkey::{WalletZKey, WalletZKeyType, WalletDiversifiers},
 };
 
 /// Sha256(Sha256(value))
@@ -116,6 +117,9 @@ pub struct Keys<P> {
     // Transparent keys. If the wallet is locked, then the secret keys will be encrypted,
     // but the addresses will be present. This Vec contains both wallet and imported tkeys
     pub(crate) tkeys: Vec<WalletTKey>,
+
+    //Diversifiers used to generate diversified addresses used in the wallet
+    pub zaddresses: Vec<WalletDiversifiers>,
 }
 
 impl<P: consensus::Parameters> Keys<P> {
@@ -135,6 +139,7 @@ impl<P: consensus::Parameters> Keys<P> {
             seed: [0u8; 32],
             zkeys: vec![],
             tkeys: vec![],
+            zaddresses: vec![],
         }
     }
 
@@ -180,6 +185,7 @@ impl<P: consensus::Parameters> Keys<P> {
             seed: seed_bytes,
             zkeys,
             tkeys: vec![tpk],
+            zaddresses: vec![],
         })
     }
 
@@ -305,6 +311,7 @@ impl<P: consensus::Parameters> Keys<P> {
             seed: seed_bytes,
             zkeys,
             tkeys,
+            zaddresses: vec![],
         })
     }
 
@@ -351,6 +358,12 @@ impl<P: consensus::Parameters> Keys<P> {
             Vector::read(&mut reader, |r| WalletTKey::read(r))?
         };
 
+        let zaddresses = if version >= 21  {
+            Vector::read(&mut reader, |r| WalletDiversifiers::read(r))?
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             config: config.clone(),
             encrypted,
@@ -360,6 +373,7 @@ impl<P: consensus::Parameters> Keys<P> {
             seed: seed_bytes,
             zkeys,
             tkeys,
+            zaddresses,
         })
     }
 
@@ -388,6 +402,9 @@ impl<P: consensus::Parameters> Keys<P> {
         // Write the transparent private keys
         Vector::write(&mut writer, &self.tkeys, |w, sk| sk.write(w))?;
 
+        // Write the wallet diversifiers
+        Vector::write(&mut writer, &self.zaddresses, |w, wd| wd.write(w))?;
+
         Ok(())
     }
 
@@ -407,14 +424,51 @@ impl<P: consensus::Parameters> Keys<P> {
     }
 
     pub fn get_all_extfvks(&self) -> Vec<ExtendedFullViewingKey> {
-        self.zkeys.iter().map(|zk| zk.extfvk.clone()).collect()
+        let extfvks: Vec<ExtendedFullViewingKey> = self.zkeys.iter().map(|zk| zk.extfvk.clone()).collect();
+        let mut unique_keys: Vec<ExtendedFullViewingKey> = Vec::new();
+
+        //Remove any duplicates
+        for k in extfvks.iter() {
+            let mut found: bool = false;
+            for j in unique_keys.iter() {
+                if j == k {
+                    found = true;
+                }
+            }
+            if !found {
+                unique_keys.push(k.clone());
+            }
+        };
+
+        unique_keys
+    }
+
+    pub fn get_all_diversified_addresses(&self) -> Vec<String> {
+        self.zaddresses
+            .iter()
+            .map(|d| d.zaddress.clone())
+            .collect()
     }
 
     pub fn get_all_zaddresses(&self) -> Vec<String> {
-        self.zkeys
-            .iter()
-            .map(|zk| encode_payment_address(self.config.hrp_sapling_address(), &zk.zaddress))
-            .collect()
+
+        let mut zaddrs: Vec<String> = self.zkeys
+                                        .iter()
+                                        .map(|zk| encode_payment_address(self.config.hrp_sapling_address(), &zk.zaddress))
+                                        .collect();
+
+
+
+        let dzaddrs: Vec<String>  = self.zaddresses
+                                        .iter()
+                                        .filter(|da| !zaddrs.contains(&da.zaddress))
+                                        .map(|d| d.zaddress.clone())
+                                        .collect();
+
+        zaddrs.extend(dzaddrs);
+
+        zaddrs
+
     }
 
     pub fn get_all_spendable_zaddresses(&self) -> Vec<String> {
@@ -516,6 +570,14 @@ impl<P: consensus::Parameters> Keys<P> {
                 }
             }
         }
+    }
+
+    pub fn add_diversifier(&mut self, extfvk: &ExtendedFullViewingKey, diversifier: Diversifier, address: String) {
+        self.zaddresses.push(WalletDiversifiers{
+                                extfvk: extfvk.clone(),
+                                diversifier: diversifier,
+                                zaddress: address,
+                            })
     }
 
     /// Adds a new z address to the wallet. This will derive a new address from the seed

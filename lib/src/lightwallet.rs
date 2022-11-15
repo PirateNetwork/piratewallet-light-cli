@@ -35,7 +35,7 @@ use zcash_primitives::{
     memo::Memo,
     transaction::{
         builder::Builder,
-        components::{amount::DEFAULT_FEE, Amount, OutPoint, TxOut},
+        components::{Amount, OutPoint, TxOut},
     },
     zip32::ExtendedFullViewingKey,
 };
@@ -171,6 +171,7 @@ pub struct LightWallet<P> {
 
     // The current price of ZEC. (time_fetched, price in USD)
     pub price: Arc<RwLock<WalletZecPriceInfo>>,
+
 }
 
 impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
@@ -200,6 +201,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
     }
 
     pub async fn read<R: Read>(mut reader: R, config: &LightClientConfig<P>) -> io::Result<Self> {
+
         let version = reader.read_u64::<LittleEndian>()?;
         if version > Self::serialized_version() {
             let e = format!(
@@ -209,29 +211,44 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             error!("{}", e);
             return Err(io::Error::new(ErrorKind::InvalidData, e));
         }
+        info!("Read wallet version {}", version);
 
-        info!("Reading wallet version {}", version);
-
-        let keys = if version <= 14 {
-            Keys::read_old(version, &mut reader, config)
-        } else {
-            Keys::read(&mut reader, config)
-        }?;
-
-        let mut blocks = Vector::read(&mut reader, |r| BlockData::read(r))?;
-        if version <= 14 {
-            // Reverse the order, since after version 20, we need highest-block-first
-            blocks = blocks.into_iter().rev().collect();
+        if version < 24 {
+            return LightWallet::read_old(version, &mut reader, config).await;
         }
 
-        let mut txns = if version <= 14 {
-            WalletTxns::read_old(&mut reader)
-        } else {
-            WalletTxns::read(&mut reader)
-        }?;
+        return LightWallet::read_new(version, &mut reader, config).await;
+
+    }
+
+    pub async fn read_old<R: Read>(version: u64, mut reader: R, config: &LightClientConfig<P>) -> io::Result<Self> {
+
+        //Old wallets only load keys and seed. Wallet will need to resync
+        let keys = Keys::read_old(version, &mut reader, config)?;
+
+        Ok(Self {
+            keys: Arc::new(RwLock::new(keys)),
+            txns: Arc::new(RwLock::new(WalletTxns::new())),
+            blocks: Arc::new(RwLock::new(vec![])),
+            wallet_options: Arc::new(RwLock::new(WalletOptions::default())),
+            config: config.clone(),
+            birthday: AtomicU64::new(config.sapling_activation_height),
+            verified_tree: Arc::new(RwLock::new(None)),
+            send_progress: Arc::new(RwLock::new(SendProgress::new(0))),
+            price: Arc::new(RwLock::new(WalletZecPriceInfo::new())),
+        })
+
+    }
+
+    pub async fn read_new<R: Read>(_version: u64, mut reader: R, config: &LightClientConfig<P>) -> io::Result<Self> {
+
+        let keys = Keys::read(&mut reader, config)?;
+
+        let blocks = Vector::read(&mut reader, |r| BlockData::read(r))?;
+
+        let txns = WalletTxns::read(&mut reader)?;
 
         let chain_name = utils::read_string(&mut reader)?;
-
         if chain_name != config.chain_name {
             return Err(Error::new(
                 ErrorKind::InvalidData,
@@ -242,49 +259,22 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             ));
         }
 
-        let wallet_options = if version <= 23 {
-            WalletOptions::default()
-        } else {
-            WalletOptions::read(&mut reader)?
-        };
+        let wallet_options = WalletOptions::read(&mut reader)?;
 
         let birthday = reader.read_u64::<LittleEndian>()?;
 
-        if version <= 22 {
-            let _sapling_tree_verified = if version <= 12 { true } else { reader.read_u8()? == 1 };
-        }
+        let verified_tree = Optional::read(&mut reader, |r| {
+            use prost::Message;
 
-        let verified_tree = if version <= 21 {
-            None
-        } else {
-            Optional::read(&mut reader, |r| {
-                use prost::Message;
+            let buf = Vector::read(r, |r| r.read_u8())?;
+            TreeState::decode(&buf[..])
+                .map_err(|e| io::Error::new(ErrorKind::InvalidData, format!("Read Error: {}", e.to_string())))
+        })?;
 
-                let buf = Vector::read(r, |r| r.read_u8())?;
-                TreeState::decode(&buf[..])
-                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, format!("Read Error: {}", e.to_string())))
-            })?
-        };
 
-        // If version <= 8, adjust the "is_spendable" status of each note data
-        if version <= 8 {
-            // Collect all spendable keys
-            let spendable_keys: Vec<_> = keys
-                .get_all_extfvks()
-                .into_iter()
-                .filter(|extfvk| keys.have_spending_key(extfvk))
-                .collect();
+        let price = WalletZecPriceInfo::read(&mut reader)?;
 
-            txns.adjust_spendable_status(spendable_keys);
-        }
-
-        let price = if version <= 13 {
-            WalletZecPriceInfo::new()
-        } else {
-            WalletZecPriceInfo::read(&mut reader)?
-        };
-
-        let mut lw = Self {
+        Ok(Self {
             keys: Arc::new(RwLock::new(keys)),
             txns: Arc::new(RwLock::new(txns)),
             blocks: Arc::new(RwLock::new(blocks)),
@@ -294,19 +284,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             verified_tree: Arc::new(RwLock::new(verified_tree)),
             send_progress: Arc::new(RwLock::new(SendProgress::new(0))),
             price: Arc::new(RwLock::new(price)),
-        };
+        })
 
-        // For old wallets, remove unused addresses
-        if version <= 14 {
-            lw.remove_unused_taddrs().await;
-            lw.remove_unused_zaddrs().await;
-        }
-
-        if version <= 14 {
-            lw.set_witness_block_heights().await;
-        }
-
-        Ok(lw)
     }
 
     pub async fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {

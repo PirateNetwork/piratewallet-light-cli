@@ -1,6 +1,7 @@
 use crate::{
     lightclient::lightclient_config::LightClientConfig,
     lightwallet::{
+        LightWallet,
         data::OutgoingTxMetadata,
         keys::{Keys, ToBase58Check},
         wallet_txns::WalletTxns,
@@ -12,7 +13,6 @@ use log::info;
 use std::{
     collections::HashSet,
     convert::{TryFrom, TryInto},
-    iter::FromIterator,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -200,10 +200,6 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                 }
             }
         }
-
-        // Remember if this is an outgoing Tx. Useful for when we want to grab the outgoing metadata.
-        let mut is_outgoing_tx = false;
-
         // Step 2. Scan transparent spends
 
         // Scan all the inputs to see if we spent any transparent funds in this tx
@@ -236,9 +232,6 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
 
         // Mark all the UTXOs that were spent here back in their original txns.
         for (prev_txid, prev_n, txid, height) in spent_utxos {
-            // Mark that this Tx spent some funds
-            is_outgoing_tx = true;
-
             wallet_txns
                 .write()
                 .await
@@ -247,8 +240,6 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
 
         // If this Tx spent value, add the spent amount to the TxID
         if total_transparent_value_spent > 0 {
-            is_outgoing_tx = true;
-
             wallet_txns.write().await.add_taddr_spent(
                 tx.txid(),
                 height,
@@ -278,11 +269,35 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                 }
             }
         }
-        // Collect all our z addresses, to check for change
-        let z_addresses: HashSet<String> = HashSet::from_iter(keys.read().await.get_all_zaddresses().into_iter());
+
+        //Collect the z_addresses spent from this transaction
+        let mut z_addresses: HashSet<String>= HashSet::new();
+        let hrp: &str = config.hrp_sapling_address().clone();
+        // Collect Sapling notes
+        if let Some(s_bundle) = tx.sapling_bundle() {
+            for s in s_bundle.shielded_spends.iter() {
+
+                wallet_txns.read().await.current.iter()
+                    .flat_map( |(_txid, wtx)| {
+                        wtx.notes.iter().filter_map(move |nd| {
+                            if nd.nullifier == s.nullifier {
+                                Some(LightWallet::<P>::note_address(hrp, nd))
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .for_each( |address| {
+                        match address {
+                            Some(x) => z_addresses.insert(x),
+                            None => false
+                        };
+                    });
+            }
+        }
 
         // Collect all our OVKs, to scan for outputs
-        let ovks: Vec<_> = keys
+        let mut ovks: Vec<_> = keys
             .read()
             .await
             .get_all_extfvks()
@@ -290,16 +305,26 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
             .map(|k| k.fvk.ovk.clone())
             .collect();
 
-        let extfvks = Arc::new(keys.read().await.get_all_extfvks());
-        let ivks: Vec<_> = extfvks.iter().map(|k| k.fvk.vk.ivk()).collect();
+        //Dedup OVKs - just incase we have an extra record
+        ovks.sort();
+        ovks.dedup();
+
+        let extfvks = keys.read().await.get_all_extfvks();
+        //let ivks: Vec<_> = extfvks.clone().iter().map(|k| k.fvk.vk.ivk()).collect();
+
+        let ivks: Vec<_> = keys
+            .read()
+            .await
+            .get_all_extfvks()
+            .iter()
+            .map(|k| k.fvk.vk.ivk())
+            .collect();
+
 
         // Step 4: Scan shielded sapling outputs to see if anyone of them is us, and if it is, extract the memo. Note that if this
         // is invoked by a transparent transaction, and we have not seen this Tx from the trial_decryptions processor, the Note
         // might not exist, and the memo updating might be a No-Op. That's Ok, the memo will get updated when this Tx is scanned
         // a second time by the Full Tx Fetcher
-        let mut outgoing_meta = vec![];
-        let mut outgoing_meta_change = Vec::new();
-
         if let Some(s_bundle) = tx.sapling_bundle() {
             for output in s_bundle.shielded_outputs.iter() {
                 // Search all of our keys
@@ -317,158 +342,96 @@ impl<P: consensus::Parameters + Send + Sync + 'static> FetchFullTxns<P> {
                             height,
                             block_time as u64,
                             note.clone(),
-                            to,
-                            &extfvks.get(i).unwrap(),
+                            to.clone(),
+                            extfvks.get(i).unwrap(),
                         );
                     }
 
                     let memo = memo_bytes.clone().try_into().unwrap_or(Memo::Future(memo_bytes));
                     wallet_txns.write().await.add_memo_to_note(&tx.txid(), note, memo);
+
+                    //Add diversified addresses to address list
+                    let zaddrs = Arc::new(keys.read().await.get_all_diversified_addresses());
+
+                    // let pa = to.clone();
+                    let da = encode_payment_address(hrp, &to);
+                    let mut found = false;
+                    for z in zaddrs.iter() {
+                        if z == &da {
+                            found = true;
+                        }
+                    }
+                    if !found {
+                        keys.write().await.add_diversifier(extfvks.get(i).unwrap(), to.diversifier().clone(), da);
+                    }
+
                 }
 
                 // Also scan the output to see if it can be decoded with our OutgoingViewKey
                 // If it can, then we sent this transaction, so we should be able to get
                 // the memo and value for our records
 
-                // Search all ovks that we have
-                let omds = ovks
-                    .iter()
-                    .filter_map(|ovk| {
-                        match try_sapling_output_recovery(&config.get_params(), height, &ovk, &output) {
-                            Some((note, payment_address, memo_bytes)) => {
-                                // Mark this tx as an outgoing tx, so we can grab all outgoing metadata
-                                is_outgoing_tx = true;
+                for (i, ovk) in ovks.iter().enumerate() {
 
-                                let address = encode_payment_address(config.hrp_sapling_address(), &payment_address);
+                    match try_sapling_output_recovery(&config.get_params(), height, &ovk, &output) {
+                        Some((note, payment_address, memo_bytes)) => {
+                            let address = encode_payment_address(config.hrp_sapling_address(), &payment_address);
 
-                                // Check if this is change, and if it also doesn't have a memo, don't add
-                                // to the outgoing metadata.
-                                // If this is change (i.e., funds sent to ourself) AND has a memo, then
-                                // presumably the users is writing a memo to themself, so we will add it to
-                                // the outgoing metadata, even though it might be confusing in the UI, but hopefully
-                                // the user can make sense of it.
-                                if !z_addresses.contains(&address) {
-                                    let memo = match Memo::try_from(memo_bytes) {
-                                        Err(_) => Memo::Empty,
-                                        Ok(memotry) => memotry
-                                    };
+                            let memo = match Memo::try_from(memo_bytes) {
+                                Err(_) => Memo::Empty,
+                                Ok(memotry) => memotry
+                            };
 
-                                    Some(OutgoingTxMetadata {
-                                        address,
-                                        value: note.value,
-                                        memo,
-                                    })
-                                } else {
-                                    None
-                                }
-                            }
-                            None => None,
+                            let mut outgoing_meta = vec![];
+
+                            outgoing_meta.push(OutgoingTxMetadata {
+                                    address: address.clone(),
+                                    value: note.value,
+                                    memo: memo,
+                                    transparent: false,
+                                    index: i as u64});
+
+                            wallet_txns
+                                .write()
+                                .await
+                                .add_outgoing_metadata(&tx.txid(), outgoing_meta);
+
                         }
-                    })
-                    .collect::<Vec<_>>();
-
-                // Add it to the overall outgoing metadatas
-                outgoing_meta.extend(omds);
-
-                let omds_change = ovks
-                    .iter()
-                    .filter_map(|ovk| {
-                        match try_sapling_output_recovery(&config.get_params(), height, &ovk, &output) {
-                            Some((note, payment_address, memo_bytes)) => {
-                                // Mark this tx as an outgoing tx, so we can grab all outgoing metadata
-                                is_outgoing_tx = true;
-
-                                let address = encode_payment_address(config.hrp_sapling_address(), &payment_address);
-
-                                // Check if this is change, and if it also doesn't have a memo, don't add
-                                // to the outgoing metadata.
-                                // If this is change (i.e., funds sent to ourself) AND has a memo, then
-                                // presumably the users is writing a memo to themself, so we will add it to
-                                // the outgoing metadata, even though it might be confusing in the UI, but hopefully
-                                // the user can make sense of it.
-                                if z_addresses.contains(&address) {
-                                    let memo = match Memo::try_from(memo_bytes) {
-                                        Err(_) => Memo::Empty,
-                                        Ok(memotry) => memotry
-                                    };
-
-                                    Some(OutgoingTxMetadata {
-                                        address,
-                                        value: note.value,
-                                        memo,
-                                    })
-                                } else {
-                                    None
-                                }
-                            }
-                            None => None,
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                // Add it to the overall outgoing metadatas
-                outgoing_meta_change.extend(omds_change);
-
-
+                        None => (),
+                    }
+                }
             }
         }
 
         // Step 5. Process t-address outputs
-        // If this Tx in outgoing, i.e., we recieved sent some money in this Tx, then we need to grab all transparent outputs
-        // that don't belong to us as the outgoing metadata
-        if wallet_txns.read().await.total_funds_spent_in(&tx.txid()) > 0 {
-            is_outgoing_tx = true;
-        }
+        if let Some(t_bundle) = tx.transparent_bundle() {
+            for (i, vout) in t_bundle.vout.iter().enumerate() {
+                let taddr = keys.read().await.address_from_pubkeyhash(vout.script_pubkey.address());
 
-        if is_outgoing_tx {
-            if let Some(t_bundle) = tx.transparent_bundle() {
-                for vout in &t_bundle.vout {
-                    let taddr = keys.read().await.address_from_pubkeyhash(vout.script_pubkey.address());
+                if taddr.is_some() {
 
-                    // if taddr.is_some() && !taddrs_set.contains(taddr.as_ref().unwrap()) {
-                    if taddr.is_some() {
-                        if !taddrs_set.contains(taddr.as_ref().unwrap()) {
-                            outgoing_meta.push(OutgoingTxMetadata {
-                                address: taddr.unwrap(),
-                                value: vout.value.into(),
-                                memo: Memo::Empty,
-                            });
-                        } else {
-                            outgoing_meta_change.push(OutgoingTxMetadata {
-                                address: taddr.unwrap(),
-                                value: vout.value.into(),
-                                memo: Memo::Empty,
-                            });
-                        }
-                    }
+                    let mut outgoing_meta = vec![];
+
+                    outgoing_meta.push(OutgoingTxMetadata {
+                        address: taddr.unwrap(),
+                        value: vout.value.into(),
+                        memo: Memo::Empty,
+                        transparent: true,
+                        index: i as u64,
+                    });
+
+                    wallet_txns
+                        .write()
+                        .await
+                        .add_outgoing_metadata(&tx.txid(), outgoing_meta)
+
                 }
-
-                // Also, if this is an outgoing transaction, then mark all the *incoming* sapling notes to this Tx as change.
-                // Note that this is also done in `WalletTxns::add_new_spent`, but that doesn't take into account transparent spends,
-                // so we'll do it again here.
-                wallet_txns.write().await.check_notes_mark_change(&tx.txid());
             }
-        }
-
-        if !outgoing_meta.is_empty() {
-            wallet_txns
-                .write()
-                .await
-                .add_outgoing_metadata(&tx.txid(), outgoing_meta, false);
-        }
-
-        if !outgoing_meta_change.is_empty() {
-            wallet_txns
-                .write()
-                .await
-                .add_outgoing_metadata(&tx.txid(), outgoing_meta_change, true);
         }
 
         // Update price if available
         if price.is_some() {
             wallet_txns.write().await.set_price(&tx.txid(), price);
         }
-
-        //info!("Finished Fetching full tx {}", tx.txid());
     }
 }

@@ -1854,6 +1854,52 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "piratewalletlitelib"
+version = "0.1.0"
+dependencies = [
+ "arr_macro",
+ "base58",
+ "base64",
+ "bls12_381",
+ "byteorder",
+ "bytes 0.4.12",
+ "dirs 3.0.2",
+ "ff",
+ "futures",
+ "group",
+ "hex 0.3.2",
+ "http",
+ "json",
+ "jubjub",
+ "lazy_static",
+ "log",
+ "log4rs 1.1.1",
+ "pairing",
+ "portpicker",
+ "prost",
+ "rand 0.8.5",
+ "ring",
+ "ripemd160",
+ "rust-embed",
+ "secp256k1",
+ "sha2 0.9.9",
+ "sodiumoxide",
+ "tempdir",
+ "tiny-bip39 0.8.2",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
+ "webpki-roots",
+ "zcash_client_backend",
+ "zcash_encoding",
+ "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e)",
+ "zcash_primitives",
+ "zcash_proofs",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3711,56 +3757,10 @@ dependencies = [
  "json",
  "log",
  "log4rs 0.8.3",
+ "piratewalletlitelib",
  "rustyline",
  "shellwords",
  "tiny-bip39 0.6.2",
- "piratewalletlitelib",
-]
-
-[[package]]
-name = "piratewalletlitelib"
-version = "0.1.0"
-dependencies = [
- "arr_macro",
- "base58",
- "base64",
- "bls12_381",
- "byteorder",
- "bytes 0.4.12",
- "dirs 3.0.2",
- "ff",
- "futures",
- "group",
- "hex 0.3.2",
- "http",
- "json",
- "jubjub",
- "lazy_static",
- "log",
- "log4rs 1.1.1",
- "pairing",
- "portpicker",
- "prost",
- "rand 0.8.5",
- "ring",
- "ripemd160",
- "rust-embed",
- "secp256k1",
- "sha2 0.9.9",
- "sodiumoxide",
- "tempdir",
- "tiny-bip39 0.8.2",
- "tokio",
- "tokio-rustls",
- "tokio-stream",
- "tonic",
- "tonic-build",
- "webpki-roots",
- "zcash_client_backend",
- "zcash_encoding",
- "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e)",
- "zcash_primitives",
- "zcash_proofs",
 ]
 
 [[package]]

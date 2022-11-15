@@ -8,7 +8,7 @@ use sodiumoxide::crypto::secretbox;
 use zcash_encoding::{Optional, Vector};
 use zcash_primitives::consensus;
 use zcash_primitives::{
-    sapling::PaymentAddress,
+    sapling::{Diversifier, PaymentAddress},
     zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
 };
 
@@ -23,13 +23,62 @@ pub enum WalletZKeyType {
     ImportedViewKey = 2,
 }
 
+// A struct that holds diversified addresses
+#[derive(Clone, Debug, PartialEq)]
+pub struct WalletDiversifiers {
+  pub extfvk: ExtendedFullViewingKey,
+  pub diversifier: Diversifier,
+  pub zaddress: String,
+}
+
+impl WalletDiversifiers {
+    fn serialized_version() -> u64 {
+        return 1;
+    }
+
+    pub fn read<R: Read>(mut inp: R) -> io::Result<Self> {
+        let _version = inp.read_u64::<LittleEndian>()?;
+
+        let extfvk = ExtendedFullViewingKey::read(&mut inp)?;
+
+        let mut diversifier_bytes = [0u8; 11];
+        inp.read_exact(&mut diversifier_bytes)?;
+        let diversifier = Diversifier { 0: diversifier_bytes };
+
+        let zaddress_len = inp.read_u64::<LittleEndian>()?;
+        let mut zaddress_bytes = vec![0; zaddress_len as usize];
+        inp.read_exact(&mut zaddress_bytes)?;
+        let zaddress = String::from_utf8(zaddress_bytes).unwrap();
+
+        Ok(WalletDiversifiers {
+            extfvk,
+            diversifier,
+            zaddress,
+        })
+    }
+
+    pub fn write<W: Write>(&self, mut out: W) -> io::Result<()> {
+        out.write_u64::<LittleEndian>(Self::serialized_version())?;
+
+        ExtendedFullViewingKey::write(&self.extfvk, &mut out)?;
+
+        out.write_all(&self.diversifier.0)?;
+
+        // Strings are written as len + utf8
+        out.write_u64::<LittleEndian>(self.zaddress.as_bytes().len() as u64)?;
+        out.write_all(self.zaddress.as_bytes())?;
+
+        Ok(())
+    }
+}
+
 // A struct that holds z-address private keys or view keys
 #[derive(Clone, Debug, PartialEq)]
 pub struct WalletZKey {
     pub(super) keytype: WalletZKeyType,
     locked: bool,
     pub(super) extsk: Option<ExtendedSpendingKey>,
-    pub(super) extfvk: ExtendedFullViewingKey,
+    pub extfvk: ExtendedFullViewingKey,
     pub(super) zaddress: PaymentAddress,
 
     // If this is a HD key, what is the key number

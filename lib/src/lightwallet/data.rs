@@ -177,14 +177,14 @@ impl WitnessCache {
 pub struct SaplingNoteData {
     // Technically, this should be recoverable from the account number,
     // but we're going to refactor this in the future, so I'll write it again here.
-    pub(super) extfvk: ExtendedFullViewingKey,
+    pub extfvk: ExtendedFullViewingKey,
 
     pub diversifier: Diversifier,
     pub note: Note,
 
     // Witnesses for the last 100 blocks. witnesses.last() is the latest witness
     pub(crate) witnesses: WitnessCache,
-    pub(super) nullifier: Nullifier,
+    pub(crate) nullifier: Nullifier,
     pub spent: Option<(TxId, u32)>, // If this note was confirmed spent
 
     // If this note was spent in a send, but has not yet been confirmed.
@@ -535,10 +535,12 @@ pub struct OutgoingTxMetadata {
     pub address: String,
     pub value: u64,
     pub memo: Memo,
+    pub transparent: bool,
+    pub index: u64,
 }
 
 impl OutgoingTxMetadata {
-    pub fn read<R: Read>(mut reader: R) -> io::Result<Self> {
+    pub fn read<R: Read>(mut reader: R, version: u64) -> io::Result<Self> {
         let address_len = reader.read_u64::<LittleEndian>()?;
         let mut address_bytes = vec![0; address_len as usize];
         reader.read_exact(&mut address_bytes)?;
@@ -559,7 +561,19 @@ impl OutgoingTxMetadata {
             )),
         }?;
 
-        Ok(OutgoingTxMetadata { address, value, memo })
+        let transparent = if version >= 21 {
+            reader.read_u8()? == 1
+        } else {
+            false
+        };
+
+        let index = if version >= 21 {
+            reader.read_u64::<LittleEndian>()?
+        } else {
+            0
+        };
+
+        Ok(OutgoingTxMetadata { address, value, memo, transparent, index })
     }
 
     pub fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
@@ -568,7 +582,14 @@ impl OutgoingTxMetadata {
         writer.write_all(self.address.as_bytes())?;
 
         writer.write_u64::<LittleEndian>(self.value)?;
-        writer.write_all(self.memo.encode().as_array())
+
+        writer.write_all(self.memo.encode().as_array())?;
+
+        writer.write_u8(if self.transparent { 1 } else { 0 })?;
+
+        writer.write_u64::<LittleEndian>(self.index)?;
+
+        Ok(())
     }
 }
 
@@ -603,9 +624,6 @@ pub struct WalletTx {
 
     // All outgoing sapling sends to addresses outside this wallet
     pub outgoing_metadata: Vec<OutgoingTxMetadata>,
-
-    // All outgoing sapling sends to addresses outside this wallet
-    pub outgoing_metadata_change: Vec<OutgoingTxMetadata>,
 
     // Whether this TxID was downloaded from the server and scanned for Memos
     pub full_tx_scanned: bool,
@@ -654,7 +672,6 @@ impl WalletTx {
             total_transparent_value_spent: 0,
             total_sapling_value_spent: 0,
             outgoing_metadata: vec![],
-            outgoing_metadata_change: vec![],
             full_tx_scanned: false,
             value_balance: 0,
             zec_price: None,
@@ -686,13 +703,11 @@ impl WalletTx {
         let total_transparent_value_spent = reader.read_u64::<LittleEndian>()?;
 
         // Outgoing metadata was only added in version 2
-        let outgoing_metadata = Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r))?;
+        let outgoing_metadata = Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r,version))?;
 
-        let outgoing_metadata_change = if version >= 6 {
-            Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r))?
-        } else {
-            vec![]
-        };
+        if version < 21 { //Removed in version 21
+            let _outgoing_metadata = Vector::read(&mut reader, |r| OutgoingTxMetadata::read(r,version))?;
+        }
 
         let full_tx_scanned = reader.read_u8()? > 0;
 
@@ -728,7 +743,6 @@ impl WalletTx {
             total_sapling_value_spent,
             total_transparent_value_spent,
             outgoing_metadata,
-            outgoing_metadata_change,
             full_tx_scanned,
             value_balance,
             zec_price,
@@ -755,9 +769,6 @@ impl WalletTx {
 
         // Write the outgoing metadata
         Vector::write(&mut writer, &self.outgoing_metadata, |w, om| om.write(w))?;
-
-        // Write the outgoing metadata_change
-        Vector::write(&mut writer, &self.outgoing_metadata_change, |w, om| om.write(w))?;
 
         writer.write_u8(if self.full_tx_scanned { 1 } else { 0 })?;
 
