@@ -377,6 +377,15 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         }
     }
 
+    pub async fn get_sapling_height(&self) -> u64 {
+        return self.config.sapling_activation_height;
+    }
+
+    pub async fn set_birthday_to_first_block(&self) -> u64 {
+        self.birthday.store(self.get_first_tx_block().await, std::sync::atomic::Ordering::SeqCst);
+        return self.birthday.load(std::sync::atomic::Ordering::SeqCst);
+    }
+
     pub async fn set_latest_zec_price(&self, price: f64) {
         if price <= 0 as f64 {
             warn!("Tried to set a bad current zec price {}", price);

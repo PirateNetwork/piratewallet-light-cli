@@ -1554,6 +1554,13 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             *self.wallet.verified_tree.write().await = heighest_tree;
         }
 
+        // 7. Update birthday if current birthday == sapling activation height
+        let sapling_activation = self.wallet.get_sapling_height().await;
+        let current_birthday = self.wallet.get_birthday().await;
+        if current_birthday <= sapling_activation {
+            let _new_birthday = self.wallet.set_birthday_to_first_block().await;
+        }
+
         Ok(object! {
             "result" => "success",
             "latest_block" => latest_block,
