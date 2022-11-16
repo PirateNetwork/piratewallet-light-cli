@@ -114,6 +114,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
+name = "arrrwallet-cli"
+version = "1.7.20"
+dependencies = [
+ "byteorder",
+ "clap",
+ "http",
+ "json",
+ "log",
+ "log4rs 0.8.3",
+ "piratewalletlitelib",
+ "rustyline",
+ "shellwords",
+ "tiny-bip39 0.6.2",
+]
+
+[[package]]
 name = "async-stream"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3745,22 +3761,6 @@ dependencies = [
  "lazy_static",
  "rand_core 0.6.3",
  "zcash_primitives",
-]
-
-[[package]]
-name = "zecwallet-cli"
-version = "1.7.20"
-dependencies = [
- "byteorder",
- "clap",
- "http",
- "json",
- "log",
- "log4rs 0.8.3",
- "piratewalletlitelib",
- "rustyline",
- "shellwords",
- "tiny-bip39 0.6.2",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 use log::error;
-use zecwallet_cli::{
+use arrrwallet_cli::{
     attempt_recover_seed, configure_clapapp, report_permission_error, start_interactive, startup, version::VERSION,
 };
 use piratewalletlitelib::{
