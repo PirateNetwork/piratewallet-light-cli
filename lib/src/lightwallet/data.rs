@@ -7,6 +7,8 @@ use std::usize;
 use zcash_encoding::{Optional, Vector};
 use zcash_primitives::memo::MemoBytes;
 
+use std::cmp::Ordering;
+
 use crate::blaze::fixed_size_buffer::FixedSizeBuffer;
 use zcash_primitives::{consensus::BlockHeight, zip32::ExtendedSpendingKey};
 use zcash_primitives::{
@@ -633,6 +635,26 @@ pub struct WalletTx {
     // Price of Zec when this Tx was created
     pub zec_price: Option<f64>,
 }
+
+impl Ord for WalletTx {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.block.cmp(&other.block)
+    }
+}
+
+impl PartialOrd for WalletTx {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for WalletTx {
+    fn eq(&self, other: &Self) -> bool {
+        self.block == other.block
+    }
+}
+
+impl Eq for WalletTx {}
 
 impl WalletTx {
     pub fn serialized_version() -> u64 {

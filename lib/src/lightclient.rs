@@ -796,10 +796,19 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             .await
             .current;
 
+        let vec_txns = &mut wallet_txns  //.values().sort().collect::<Vec<&WalletTx>>();
+                            .iter()
+                            .flat_map(|(_k, v)|  {
+                                let mut txns: Vec<&WalletTx> = vec![];
+                                txns.push(v.clone());
+                                txns
+                            }).collect::<Vec<_>>();
+        vec_txns.sort();
+
         // Create a list of TransactionItems from wallet txns
-        let tx_list = &wallet_txns
+        let tx_list = &vec_txns
             .iter()
-            .flat_map(|(_k, v)| {
+            .flat_map(| v | {
                 let mut txns: Vec<JsonValue> = vec![];
 
                 //TODO: - Add t-address support for change
