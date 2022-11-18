@@ -166,31 +166,33 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         }
 
         // Ensure that the sapling params are stored on disk properly as well. Only on desktop
-        match self.config.get_zcash_params_path() {
-            Ok(zcash_params_dir) => {
-                // Create the sapling output and spend params files
-                match LightClient::<P>::write_file_if_not_exists(
-                    &zcash_params_dir,
-                    "sapling-output.params",
-                    &sapling_output,
-                ) {
-                    Ok(_) => {}
-                    Err(e) => return Err(format!("Warning: Couldn't write the output params!\n{}", e)),
-                };
+        if cfg!(all(not(target_os="ios"), not(target_os="android"))) {
+            match self.config.get_zcash_params_path() {
+                Ok(zcash_params_dir) => {
+                    // Create the sapling output and spend params files
+                    match LightClient::<P>::write_file_if_not_exists(
+                        &zcash_params_dir,
+                        "sapling-output.params",
+                        &sapling_output,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => return Err(format!("Warning: Couldn't write the output params!\n{}", e)),
+                    };
 
-                match LightClient::<P>::write_file_if_not_exists(
-                    &zcash_params_dir,
-                    "sapling-spend.params",
-                    &sapling_spend,
-                ) {
-                    Ok(_) => {}
-                    Err(e) => return Err(format!("Warning: Couldn't write the spend params!\n{}", e)),
+                    match LightClient::<P>::write_file_if_not_exists(
+                        &zcash_params_dir,
+                        "sapling-spend.params",
+                        &sapling_spend,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => return Err(format!("Warning: Couldn't write the spend params!\n{}", e)),
+                    }
                 }
-            }
-            Err(e) => {
-                return Err(format!("{}", e));
-            }
-        };
+                Err(e) => {
+                    return Err(format!("{}", e));
+                }
+            };
+        }
 
         Ok(())
     }
