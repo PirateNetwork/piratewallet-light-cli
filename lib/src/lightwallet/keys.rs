@@ -634,7 +634,8 @@ impl<P: consensus::Parameters> Keys<P> {
 
     // Get all z-address private keys. Returns a Vector of (address, privatekey, viewkey)
     pub fn get_z_private_keys(&self) -> Vec<(String, String, String)> {
-        let keys = self
+        //Collect Default Addresses
+        let mut keys = self
             .zkeys
             .iter()
             .map(|k| {
@@ -656,6 +657,34 @@ impl<P: consensus::Parameters> Keys<P> {
                 )
             })
             .collect::<Vec<(String, String, String)>>();
+
+        //Collect Diversified Addresses
+        let dkeys = self
+            .zaddresses
+            .iter()
+            .map(|k| {
+                let vkey = encode_extended_full_viewing_key(self.config.hrp_sapling_viewing_key(), &k.extfvk);
+
+                let pkey = match keys.iter().find(|&pk| pk.2 == vkey.clone()) {
+                    Some(pk) => pk.1.clone(),
+                    None => "". to_string()
+                };
+
+                (k.zaddress.clone(), pkey, vkey)
+            }).collect::<Vec<(String, String, String)>>();
+
+        //Add Diversified addresses into Default collection
+        for d in dkeys {
+
+            let found = match keys.iter().find(|&k| k.0 == d.0) {
+                Some(_) => true,
+                None => false
+            };
+
+            if !found {
+                keys.push(d);
+            }
+        }
 
         keys
     }
