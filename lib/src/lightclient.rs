@@ -64,8 +64,11 @@ pub struct LightClient<P> {
 
     mempool_monitor: std::sync::RwLock<Option<std::thread::JoinHandle<()>>>,
 
-    sync_lock: Mutex<()>,
+    // zcash-params
+    pub sapling_output  : Vec<u8>,
+    pub sapling_spend   : Vec<u8>,
 
+    sync_lock: Mutex<()>,
     bsync_data: Arc<RwLock<BlazeSyncData>>,
 }
 
@@ -84,6 +87,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             wallet: LightWallet::new(config.clone(), seed_phrase, height, 1)?,
             config: config.clone(),
             mempool_monitor: std::sync::RwLock::new(None),
+            sapling_output  : vec![],
+            sapling_spend   : vec![],
             bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             sync_lock: Mutex::new(()),
         };
@@ -165,6 +170,15 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             }
         }
 
+        // Will not overwrite previous params
+        if self.sapling_output.is_empty() {
+            self.sapling_output.extend_from_slice(sapling_output);
+        }
+
+        if self.sapling_spend.is_empty() {
+            self.sapling_spend.extend_from_slice(sapling_spend);
+        }
+
         // Ensure that the sapling params are stored on disk properly as well. Only on desktop
         if cfg!(all(not(target_os="ios"), not(target_os="android"))) {
             match self.config.get_zcash_params_path() {
@@ -217,6 +231,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 wallet: LightWallet::new(config.clone(), None, latest_block, num_zaddrs)?,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
+                sapling_output  : vec![],
+                sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             };
@@ -286,6 +302,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                     wallet: LightWallet::new(config.clone(), Some(seed_phrase), birthday, 1)?,
                     config: config.clone(),
                     mempool_monitor: std::sync::RwLock::new(None),
+                    sapling_output  : vec![],
+                    sapling_spend   : vec![],
                     sync_lock: Mutex::new(()),
                     bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
                 };
@@ -314,6 +332,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 wallet,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
+                sapling_output  : vec![],
+                sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             };
@@ -346,6 +366,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 wallet: wallet,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
+                sapling_output  : vec![],
+                sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             };
@@ -1625,9 +1647,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
         let result = {
             let _lock = self.sync_lock.lock().await;
-            let (sapling_output, sapling_spend) = self.read_sapling_params()?;
 
-            let prover = LocalTxProver::from_bytes(&sapling_spend, &sapling_output);
+            let prover = LocalTxProver::from_bytes(&self.sapling_spend, &self.sapling_output);
 
             self.wallet
                 .send_to_address(prover, false, from, addrs, fee, |txbytes| {
