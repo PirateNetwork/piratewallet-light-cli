@@ -104,6 +104,38 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
         }
     }
 
+    pub fn check_server(server_uri: String) -> bool {
+
+        let s = Self::get_server_or_default(Some(server_uri));
+
+        use std::net::ToSocketAddrs;
+
+        // let s = server.clone();
+        if let Ok((_chain_name, _sapling_activation_height, _block_height)) =
+            Runtime::new().unwrap().block_on(async move {
+                // Test for a connection first
+                format!("{}:{}", s.host().unwrap(), s.port().unwrap())
+                    .to_socket_addrs()?
+                    .next()
+                    .ok_or(std::io::Error::new(
+                        ErrorKind::ConnectionRefused,
+                        "Couldn't resolve server!",
+                    ))?;
+
+                // Do a getinfo first, before opening the wallet
+                let info = GrpcConnector::get_info(s.clone())
+                    .await
+                    .map_err(|e| std::io::Error::new(ErrorKind::ConnectionRefused, e))?;
+
+                Ok::<_, std::io::Error>((info.chain_name, info.sapling_activation_height, info.block_height))
+            })
+        {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn create(params: P, server: http::Uri) -> io::Result<(LightClientConfig<P>, u64)> {
         use std::net::ToSocketAddrs;
 
