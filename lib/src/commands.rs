@@ -89,6 +89,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SyncStatus
         RT.block_on(async move {
             let status = lightclient.do_sync_status().await;
 
+            let height = lightclient.wallet.last_scanned_height().await;
+            
             let o = if status.in_progress {
                 object! {
                     "sync_id" => status.sync_id,
@@ -108,6 +110,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SyncStatus
                     "sync_id" => status.sync_id,
                     "in_progress" => status.in_progress,
                     "last_error" => status.last_error,
+                    "scanned_height" => height,
                 }
             };
             o.pretty(2)
