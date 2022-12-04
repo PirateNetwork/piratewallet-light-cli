@@ -1382,10 +1382,11 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         let mut latest_block_batches = vec![];
         let mut prev = last_scanned_height;
         while latest_block_batches.is_empty() || prev != latest_blockid.height {
-            let mut batch_size = 50_000;
-            if prev + batch_size > 1_700_000 {
-                batch_size = 1_000;
-            }
+            // let mut batch_size = 50_000;
+            // if prev + batch_size > 1_700_000 {
+            //     batch_size = 1_000;
+            // }
+            let batch_size = 10_000;
 
             let batch = cmp::min(latest_blockid.height, prev + batch_size);
             prev = batch;
