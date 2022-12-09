@@ -210,43 +210,43 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
             .map_err(|e| Error::new(ErrorKind::Other, format!("{}", e)))
     }
 
-    pub fn get_zcash_data_path(&self) -> Box<Path> {
+    pub fn get_pirate_data_path(&self) -> Box<Path> {
         if cfg!(target_os = "ios") || cfg!(target_os = "android") {
             PathBuf::from(&self.data_dir.as_ref().unwrap()).into_boxed_path()
         } else {
-            let mut zcash_data_location;
+            let mut pirate_data_location;
             if self.data_dir.is_some() {
-                zcash_data_location = PathBuf::from(&self.data_dir.as_ref().unwrap());
+                pirate_data_location = PathBuf::from(&self.data_dir.as_ref().unwrap());
             } else {
                 if cfg!(target_os = "macos") || cfg!(target_os = "windows") {
-                    zcash_data_location = dirs::data_dir().expect("Couldn't determine app data directory!");
-                    zcash_data_location.push("Zcash");
+                    pirate_data_location = dirs::data_dir().expect("Couldn't determine app data directory!");
+                    pirate_data_location.push("Pirate");
                 } else {
                     if dirs::home_dir().is_none() {
                         info!("Couldn't determine home dir!");
                     }
-                    zcash_data_location = dirs::home_dir().expect("Couldn't determine home directory!");
-                    zcash_data_location.push(".zcash");
+                    pirate_data_location = dirs::home_dir().expect("Couldn't determine home directory!");
+                    pirate_data_location.push(".pirate");
                 };
 
                 match &self.chain_name[..] {
                     "zs" | "main" => {}
-                    "ztestsapling" | "test" => zcash_data_location.push("testnet3"),
-                    "zregtestsapling" | "regtest" => zcash_data_location.push("regtest"),
+                    "ztestsapling" | "test" => pirate_data_location.push("testnet3"),
+                    "zregtestsapling" | "regtest" => pirate_data_location.push("regtest"),
                     c => panic!("Unknown chain {}", c),
                 };
             }
 
             // Create directory if it doesn't exist on non-mobile platforms
-            match std::fs::create_dir_all(zcash_data_location.clone()) {
+            match std::fs::create_dir_all(pirate_data_location.clone()) {
                 Ok(_) => {}
                 Err(e) => {
-                    eprintln!("Couldn't create zcash directory!\n{}", e);
-                    panic!("Couldn't create zcash directory!");
+                    eprintln!("Couldn't create pirate directory!\n{}", e);
+                    panic!("Couldn't create pirate directory!");
                 }
             };
 
-            zcash_data_location.into_boxed_path()
+            pirate_data_location.into_boxed_path()
         }
     }
 
@@ -261,7 +261,7 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
                 ));
             }
 
-            let mut zcash_params = self.get_zcash_data_path().into_path_buf();
+            let mut zcash_params = self.get_pirate_data_path().into_path_buf();
             zcash_params.push("..");
             if cfg!(target_os = "macos") || cfg!(target_os = "windows") {
                 zcash_params.push("ZcashParams");
@@ -280,7 +280,7 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
     }
 
     pub fn get_wallet_path(&self) -> Box<Path> {
-        let mut wallet_location = self.get_zcash_data_path().into_path_buf();
+        let mut wallet_location = self.get_pirate_data_path().into_path_buf();
         wallet_location.push(WALLET_NAME);
 
         wallet_location.into_boxed_path()
@@ -299,9 +299,9 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
         }
         use std::time::{SystemTime, UNIX_EPOCH};
 
-        let mut backup_file_path = self.get_zcash_data_path().into_path_buf();
+        let mut backup_file_path = self.get_pirate_data_path().into_path_buf();
         backup_file_path.push(&format!(
-            "zecwallet-light-wallet.backup.{}.dat",
+            "arrrwallet-light-wallet.backup.{}.dat",
             SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
         ));
 
@@ -312,7 +312,7 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
     }
 
     pub fn get_log_path(&self) -> Box<Path> {
-        let mut log_path = self.get_zcash_data_path().into_path_buf();
+        let mut log_path = self.get_pirate_data_path().into_path_buf();
         log_path.push(LOGFILE_NAME);
         //println!("LogFile:\n{}", log_path.to_str().unwrap());
 
