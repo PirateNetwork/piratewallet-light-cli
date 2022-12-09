@@ -83,7 +83,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             ));
         }
 
-        let l = LightClient {
+        let mut l = LightClient {
             wallet: LightWallet::new(config.clone(), seed_phrase, height, 1)?,
             config: config.clone(),
             mempool_monitor: std::sync::RwLock::new(None),
@@ -94,6 +94,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         };
 
         l.set_wallet_initial_state(height).await;
+
+        #[cfg(feature = "embed_params")]
+        if !l.load_embedded_params() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Loading sapling params failed!",
+            ));
+        }
 
         info!("Created new wallet!");
         info!("Created LightClient to {}", &config.server);
@@ -112,6 +120,25 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     }
 
     #[cfg(feature = "embed_params")]
+    fn load_embedded_params(&mut self) -> bool {
+        let (sapling_output, sapling_spend) = match self.read_sapling_params() {
+            Ok(s) => s,
+            Err(_) => return false
+        };
+
+        // Will not overwrite previous params
+        if self.sapling_output.is_empty() {
+            self.sapling_output.extend_from_slice(&sapling_output);
+        }
+
+        if self.sapling_spend.is_empty() {
+            self.sapling_spend.extend_from_slice(&sapling_spend);
+        }
+
+        return true;
+    }
+
+    #[cfg(feature = "embed_params")]
     fn read_sapling_params(&self) -> Result<(Vec<u8>, Vec<u8>), String> {
         // Read Sapling Params
         use crate::SaplingParams;
@@ -124,24 +151,24 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         Ok((sapling_output, sapling_spend))
     }
 
-    #[cfg(not(feature = "embed_params"))]
-    fn read_sapling_params(&self) -> Result<(Vec<u8>, Vec<u8>), String> {
-        let path = self.config.get_zcash_params_path().map_err(|e| e.to_string())?;
-
-        let mut path_buf = path.to_path_buf();
-        path_buf.push("sapling-output.params");
-        let mut file = File::open(path_buf).map_err(|e| e.to_string())?;
-        let mut sapling_output = vec![];
-        file.read_to_end(&mut sapling_output).map_err(|e| e.to_string())?;
-
-        let mut path_buf = path.to_path_buf();
-        path_buf.push("sapling-spend.params");
-        let mut file = File::open(path_buf).map_err(|e| e.to_string())?;
-        let mut sapling_spend = vec![];
-        file.read_to_end(&mut sapling_spend).map_err(|e| e.to_string())?;
-
-        Ok((sapling_output, sapling_spend))
-    }
+    // #[cfg(not(feature = "embed_params"))]
+    // fn read_sapling_params(&self) -> Result<(Vec<u8>, Vec<u8>), String> {
+    //     let path = self.config.get_zcash_params_path().map_err(|e| e.to_string())?;
+    //
+    //     let mut path_buf = path.to_path_buf();
+    //     path_buf.push("sapling-output.params");
+    //     let mut file = File::open(path_buf).map_err(|e| e.to_string())?;
+    //     let mut sapling_output = vec![];
+    //     file.read_to_end(&mut sapling_output).map_err(|e| e.to_string())?;
+    //
+    //     let mut path_buf = path.to_path_buf();
+    //     path_buf.push("sapling-spend.params");
+    //     let mut file = File::open(path_buf).map_err(|e| e.to_string())?;
+    //     let mut sapling_spend = vec![];
+    //     file.read_to_end(&mut sapling_spend).map_err(|e| e.to_string())?;
+    //
+    //     Ok((sapling_output, sapling_spend))
+    // }
 
     pub fn set_sapling_params(&mut self, sapling_output: &[u8], sapling_spend: &[u8]) -> Result<(), String> {
         use sha2::{Digest, Sha256};
@@ -227,7 +254,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
     fn new_wallet(config: &LightClientConfig<P>, latest_block: u64, num_zaddrs: u32) -> io::Result<Self> {
         Runtime::new().unwrap().block_on(async move {
-            let l = LightClient {
+            let mut l = LightClient {
                 wallet: LightWallet::new(config.clone(), None, latest_block, num_zaddrs)?,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
@@ -238,6 +265,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             };
 
             l.set_wallet_initial_state(latest_block).await;
+
+            #[cfg(feature = "embed_params")]
+            if !l.load_embedded_params() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Loading sapling params failed!",
+                ));
+            }
 
             info!("Created new wallet with a new seed!");
             info!("Created LightClient to {}", &config.server);
@@ -298,7 +333,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             })
         } else {
             Runtime::new().unwrap().block_on(async move {
-                let l = LightClient {
+                let mut l = LightClient {
                     wallet: LightWallet::new(config.clone(), Some(seed_phrase), birthday, 1)?,
                     config: config.clone(),
                     mempool_monitor: std::sync::RwLock::new(None),
@@ -312,6 +347,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 l.do_save(true)
                     .await
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                #[cfg(feature = "embed_params")]
+                if !l.load_embedded_params() {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Loading sapling params failed!",
+                    ));
+                }
 
                 info!("Created new wallet!");
 
@@ -328,7 +371,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         let l = Runtime::new().unwrap().block_on(async move {
             let wallet = LightWallet::read(&mut reader, config).await?;
 
-            let lc = LightClient {
+            let mut lc = LightClient {
                 wallet,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
@@ -337,6 +380,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             };
+
+            #[cfg(feature = "embed_params")]
+            if !lc.load_embedded_params() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Loading sapling params failed!",
+                ));
+            }
 
             info!("Read wallet with birthday {}", lc.wallet.get_birthday().await);
             info!("Created LightClient to {}", &config.server);
@@ -362,7 +413,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
             let wallet = LightWallet::read(&mut file_buffer, config).await?;
 
-            let lc = LightClient {
+            let mut lc = LightClient {
                 wallet: wallet,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
@@ -371,6 +422,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             };
+
+            #[cfg(feature = "embed_params")]
+            if !lc.load_embedded_params() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Loading sapling params failed!",
+                ));
+            }
 
             info!("Read wallet with birthday {}", lc.wallet.get_birthday().await);
             info!("Created LightClient to {}", &config.server);
