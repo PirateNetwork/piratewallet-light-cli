@@ -667,7 +667,7 @@ impl WalletTx {
         TxId::from_bytes(txid_bytes)
     }
 
-    pub fn get_price(datetime: u64, price: &WalletZecPriceInfo) -> Option<f64> {
+    pub fn get_price(datetime: u64, price: &WalletArrrPriceInfo) -> Option<f64> {
         match price.zec_price {
             None => None,
             Some((t, p)) => {
@@ -844,7 +844,7 @@ impl SpendableNote {
 
 // Struct that tracks the latest and historical price of ARRR in the wallet
 #[derive(Clone, Debug)]
-pub struct WalletZecPriceInfo {
+pub struct WalletArrrPriceInfo {
     // Latest price of ARRR and when it was fetched
     pub zec_price: Option<(u64, f64)>,
 
@@ -858,7 +858,7 @@ pub struct WalletZecPriceInfo {
     pub historical_prices_retry_count: u64,
 }
 
-impl WalletZecPriceInfo {
+impl WalletArrrPriceInfo {
     pub fn new() -> Self {
         Self {
             zec_price: None,

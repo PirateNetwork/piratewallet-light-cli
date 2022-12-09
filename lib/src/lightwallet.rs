@@ -41,7 +41,7 @@ use zcash_primitives::{
 };
 
 use self::{
-    data::{BlockData, SaplingNoteData, Utxo, WalletZecPriceInfo},
+    data::{BlockData, SaplingNoteData, Utxo, WalletArrrPriceInfo},
     keys::Keys,
     message::Message,
     wallet_txns::WalletTxns,
@@ -169,8 +169,8 @@ pub struct LightWallet<P> {
     // Progress of an outgoing tx
     send_progress: Arc<RwLock<SendProgress>>,
 
-    // The current price of ZEC. (time_fetched, price in USD)
-    pub price: Arc<RwLock<WalletZecPriceInfo>>,
+    // The current price of ARRR. (time_fetched, price in USD)
+    pub price: Arc<RwLock<WalletArrrPriceInfo>>,
 
 }
 
@@ -196,7 +196,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             birthday: AtomicU64::new(height),
             verified_tree: Arc::new(RwLock::new(None)),
             send_progress: Arc::new(RwLock::new(SendProgress::new(0))),
-            price: Arc::new(RwLock::new(WalletZecPriceInfo::new())),
+            price: Arc::new(RwLock::new(WalletArrrPriceInfo::new())),
         })
     }
 
@@ -235,7 +235,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
             birthday: AtomicU64::new(config.sapling_activation_height),
             verified_tree: Arc::new(RwLock::new(None)),
             send_progress: Arc::new(RwLock::new(SendProgress::new(0))),
-            price: Arc::new(RwLock::new(WalletZecPriceInfo::new())),
+            price: Arc::new(RwLock::new(WalletArrrPriceInfo::new())),
         })
 
     }
@@ -272,7 +272,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         })?;
 
 
-        let price = WalletZecPriceInfo::read(&mut reader)?;
+        let price = WalletArrrPriceInfo::read(&mut reader)?;
 
         Ok(Self {
             keys: Arc::new(RwLock::new(keys)),
