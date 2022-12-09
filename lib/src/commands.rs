@@ -276,7 +276,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for ZecPriceCo
         "Get the latest ARRR price in the wallet's currency (USD)".to_string()
     }
     fn exec(&self, _args: &[&str], lightclient: &LightClient<P>) -> String {
-        RT.block_on(async move { lightclient.do_zec_price().await })
+        RT.block_on(async move { lightclient.do_arrr_price().await })
     }
 }
 

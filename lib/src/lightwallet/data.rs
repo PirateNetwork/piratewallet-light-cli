@@ -633,7 +633,7 @@ pub struct WalletTx {
     // Value Balance of this Tx.
     pub value_balance : u64,
     // Price of Zec when this Tx was created
-    pub zec_price: Option<f64>,
+    pub arrr_price: Option<f64>,
 }
 
 impl Ord for WalletTx {
@@ -668,7 +668,7 @@ impl WalletTx {
     }
 
     pub fn get_price(datetime: u64, price: &WalletArrrPriceInfo) -> Option<f64> {
-        match price.zec_price {
+        match price.arrr_price {
             None => None,
             Some((t, p)) => {
                 // If the price was fetched within 24 hours of this Tx, we use the "current" price
@@ -696,7 +696,7 @@ impl WalletTx {
             outgoing_metadata: vec![],
             full_tx_scanned: false,
             value_balance: 0,
-            zec_price: None,
+            arrr_price: None,
         }
     }
 
@@ -738,7 +738,7 @@ impl WalletTx {
         } else {
             0
         };
-        let zec_price = if version <= 4 {
+        let arrr_price = if version <= 4 {
             None
         } else {
             Optional::read(&mut reader, |r| r.read_f64::<LittleEndian>())?
@@ -767,7 +767,7 @@ impl WalletTx {
             outgoing_metadata,
             full_tx_scanned,
             value_balance,
-            zec_price,
+            arrr_price,
         })
     }
 
@@ -796,7 +796,7 @@ impl WalletTx {
 
         writer.write_u64::<LittleEndian>(self.value_balance)?;
 
-        Optional::write(&mut writer, self.zec_price, |w, p| w.write_f64::<LittleEndian>(p))?;
+        Optional::write(&mut writer, self.arrr_price, |w, p| w.write_f64::<LittleEndian>(p))?;
 
         Vector::write(&mut writer, &self.spent_nullifiers, |w, n| w.write_all(&n.0))?;
 
@@ -846,7 +846,7 @@ impl SpendableNote {
 #[derive(Clone, Debug)]
 pub struct WalletArrrPriceInfo {
     // Latest price of ARRR and when it was fetched
-    pub zec_price: Option<(u64, f64)>,
+    pub arrr_price: Option<(u64, f64)>,
 
     // Wallet's currency. All the prices are in this currency
     pub currency: String,
@@ -861,7 +861,7 @@ pub struct WalletArrrPriceInfo {
 impl WalletArrrPriceInfo {
     pub fn new() -> Self {
         Self {
-            zec_price: None,
+            arrr_price: None,
             currency: "USD".to_string(), // Only USD is supported right now.
             last_historical_prices_fetched_at: None,
             historical_prices_retry_count: 0,
@@ -882,7 +882,7 @@ impl WalletArrrPriceInfo {
         }
 
         // The "current" zec price is not persisted, since it is almost certainly outdated
-        let zec_price = None;
+        let arrr_price = None;
 
         // Currency is only USD for now
         let currency = "USD".to_string();
@@ -891,7 +891,7 @@ impl WalletArrrPriceInfo {
         let historical_prices_retry_count = reader.read_u64::<LittleEndian>()?;
 
         Ok(Self {
-            zec_price,
+            arrr_price,
             currency,
             last_historical_prices_fetched_at,
             historical_prices_retry_count,

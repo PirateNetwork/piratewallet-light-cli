@@ -386,13 +386,13 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         return self.birthday.load(std::sync::atomic::Ordering::SeqCst);
     }
 
-    pub async fn set_latest_zec_price(&self, price: f64) {
+    pub async fn set_latest_arrr_price(&self, price: f64) {
         if price <= 0 as f64 {
             warn!("Tried to set a bad current zec price {}", price);
             return;
         }
 
-        self.price.write().await.zec_price = Some((now(), price));
+        self.price.write().await.arrr_price = Some((now(), price));
         info!("Set current ARRR Price to USD {}", price);
     }
 

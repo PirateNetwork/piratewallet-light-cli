@@ -143,7 +143,7 @@ pub struct TestServerData<P> {
     pub txns: HashMap<TxId, (Vec<String>, RawTransaction)>,
     pub sent_txns: Vec<RawTransaction>,
     pub config: LightClientConfig<P>,
-    pub zec_price: f64,
+    pub arrr_price: f64,
     pub tree_states: Vec<(u64, String, String)>,
 }
 
@@ -154,7 +154,7 @@ impl<P: consensus::Parameters> TestServerData<P> {
             txns: HashMap::new(),
             sent_txns: vec![],
             config,
-            zec_price: 140.5,
+            arrr_price: 140.5,
             tree_states: vec![],
         };
 
@@ -288,7 +288,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> CompactTxStreamer for Tes
         let mut res = PriceResponse::default();
         res.currency = "USD".to_string();
         res.timestamp = now() as i64;
-        res.price = self.data.read().await.zec_price;
+        res.price = self.data.read().await.arrr_price;
 
         Ok(Response::new(res))
     }

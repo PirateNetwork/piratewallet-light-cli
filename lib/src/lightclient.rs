@@ -638,20 +638,20 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         self.config.server.clone()
     }
 
-    pub async fn do_zec_price(&self) -> String {
+    pub async fn do_arrr_price(&self) -> String {
         let mut price = self.wallet.price.read().await.clone();
 
         // If there is no price, try to fetch it first.
-        if price.zec_price.is_none() {
+        if price.arrr_price.is_none() {
             self.update_current_price().await;
             price = self.wallet.price.read().await.clone();
         }
 
-        match price.zec_price {
+        match price.arrr_price {
             None => return "Error: No price".to_string(),
             Some((ts, p)) => {
                 let o = object! {
-                    "zec_price" => p,
+                    "arrr_price" => p,
                     "fetched_at" =>  ts,
                     "currency" => price.currency
                 };
@@ -1212,7 +1212,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         // Get the zec price from the server
         match GrpcConnector::get_current_zec_price(self.get_server_uri()).await {
             Ok(p) => {
-                self.wallet.set_latest_zec_price(p.price).await;
+                self.wallet.set_latest_arrr_price(p.price).await;
             }
             Err(s) => error!("Error fetching latest price: {}", s),
         }
@@ -1230,7 +1230,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             .await
             .current
             .iter()
-            .filter_map(|(txid, wtx)| match wtx.zec_price {
+            .filter_map(|(txid, wtx)| match wtx.arrr_price {
                 None => Some((txid.clone(), wtx.datetime)),
                 Some(_) => None,
             })
@@ -1243,7 +1243,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         info!("Fetching historical prices for {} txids", txids_to_fetch.len());
 
         let retry_count_increase =
-            match GrpcConnector::get_historical_zec_prices(self.get_server_uri(), txids_to_fetch, price.currency).await
+            match GrpcConnector::get_historical_arrr_prices(self.get_server_uri(), txids_to_fetch, price.currency).await
             {
                 Ok(prices) => {
                     let mut any_failed = false;
@@ -1254,7 +1254,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                             Some(p) => {
                                 // Update the price
                                 // info!("Historical price at txid {} was {}", txid, p);
-                                self.wallet.txns.write().await.current.get_mut(&txid).unwrap().zec_price = Some(p);
+                                self.wallet.txns.write().await.current.get_mut(&txid).unwrap().arrr_price = Some(p);
                             }
                         }
                     }

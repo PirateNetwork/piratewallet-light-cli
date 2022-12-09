@@ -377,7 +377,7 @@ impl GrpcConnector {
         Ok(response.into_inner())
     }
 
-    pub async fn get_historical_zec_prices(
+    pub async fn get_historical_arrr_prices(
         uri: http::Uri,
         txids: Vec<(TxId, u64)>,
         currency: String,
