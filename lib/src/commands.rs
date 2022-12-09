@@ -90,7 +90,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SyncStatus
             let status = lightclient.do_sync_status().await;
 
             let height = lightclient.wallet.last_scanned_height().await;
-            
+
             let o = if status.in_progress {
                 object! {
                     "sync_id" => status.sync_id,
@@ -264,7 +264,7 @@ struct ZecPriceCommand {}
 impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for ZecPriceCommand {
     fn help(&self) -> String {
         let mut h = vec![];
-        h.push("Get the latest ZEC price in the wallet's currency (USD)");
+        h.push("Get the latest ARRR price in the wallet's currency (USD)");
         h.push("Usage:");
         h.push("zecprice");
         h.push("");
@@ -273,7 +273,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for ZecPriceCo
     }
 
     fn short_help(&self) -> String {
-        "Get the latest ZEC price in the wallet's currency (USD)".to_string()
+        "Get the latest ARRR price in the wallet's currency (USD)".to_string()
     }
     fn exec(&self, _args: &[&str], lightclient: &LightClient<P>) -> String {
         RT.block_on(async move { lightclient.do_zec_price().await })
@@ -305,7 +305,7 @@ struct BalanceCommand {}
 impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for BalanceCommand {
     fn help(&self) -> String {
         let mut h = vec![];
-        h.push("Show the current ZEC balance in the wallet");
+        h.push("Show the current ARRR balance in the wallet");
         h.push("Usage:");
         h.push("balance");
         h.push("");
@@ -315,7 +315,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for BalanceCom
     }
 
     fn short_help(&self) -> String {
-        "Show the current ZEC balance in the wallet".to_string()
+        "Show the current ARRR balance in the wallet".to_string()
     }
     fn exec(&self, _args: &[&str], lightclient: &LightClient<P>) -> String {
         RT.block_on(async move { format!("{}", lightclient.do_balance().await.pretty(2)) })
@@ -560,7 +560,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for LockComman
 //         h.push("Usage:");
 //         h.push("shield [optional address]");
 //         h.push("");
-//         h.push("NOTE: The fee required to send this transaction (currently ZEC 0.0001) is additionally deducted from your balance.");
+//         h.push("NOTE: The fee required to send this transaction (currently ARRR 0.0001) is additionally deducted from your balance.");
 //         h.push("Example:");
 //         h.push("shield");
 //         h.push("");
@@ -569,7 +569,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for LockComman
 //     }
 //
 //     fn short_help(&self) -> String {
-//         "Shield your transparent ZEC into a sapling address".to_string()
+//         "Shield your transparent ARRR into a sapling address".to_string()
 //     }
 //     fn exec(&self, args: &[&str], lightclient: &LightClient<P>) -> String {
 //         // Parse the address or amount
@@ -699,11 +699,11 @@ struct SendCommand {}
 impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SendCommand {
     fn help(&self) -> String {
         let mut h = vec![];
-        h.push("Send ZEC to a given address(es)");
+        h.push("Send ARRR to a given address(es)");
         h.push("Usage:");
         h.push("send '{'input': <address>, 'output': [{'address': <address>, 'amount': <amount in zatoshis>, 'memo': <optional memo>}, ...]}");
         h.push("");
-        h.push("NOTE: The fee required to send this transaction (currently ZEC 0.0001) is additionally deducted from your balance.");
+        h.push("NOTE: The fee required to send this transaction (currently ARRR 0.0001) is additionally deducted from your balance.");
         h.push("Example:");
         h.push("send '{\"input\":\"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"output\": [{ \"address\": \"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"amount\": 200000, \"memo\": \"Hello from the command line\"}]}'");
         h.push("");
@@ -711,7 +711,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SendComman
     }
 
     fn short_help(&self) -> String {
-        "Send ZEC to the given address".to_string()
+        "Send ARRR to the given address".to_string()
     }
     fn exec(&self, args: &[&str], lightclient: &LightClient<P>) -> String {
         // Parse the args. There are two argument types.

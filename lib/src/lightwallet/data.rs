@@ -842,10 +842,10 @@ impl SpendableNote {
     }
 }
 
-// Struct that tracks the latest and historical price of ZEC in the wallet
+// Struct that tracks the latest and historical price of ARRR in the wallet
 #[derive(Clone, Debug)]
 pub struct WalletZecPriceInfo {
-    // Latest price of ZEC and when it was fetched
+    // Latest price of ARRR and when it was fetched
     pub zec_price: Option<(u64, f64)>,
 
     // Wallet's currency. All the prices are in this currency

@@ -393,7 +393,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         }
 
         self.price.write().await.zec_price = Some((now(), price));
-        info!("Set current ZEC Price to USD {}", price);
+        info!("Set current ARRR Price to USD {}", price);
     }
 
     // Get the current sending status.
