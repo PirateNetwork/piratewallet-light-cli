@@ -1113,7 +1113,7 @@ async fn recover_at_checkpoint() {
 
     // 5: Test2: Create a new lightwallet, restoring at checkpoint + 100
     // First remove the old wallet
-    fs::remove_file(Path::new(config.data_dir.as_ref().unwrap()).join("zecwallet-light-wallet.dat")).unwrap();
+    fs::remove_file(Path::new(config.data_dir.as_ref().unwrap()).join("arrrwallet-light-wallet.dat")).unwrap();
     let lc = LightClient::test_new(&config, Some(TEST_SEED.to_string()), ckpt_height + 100)
         .await
         .unwrap();

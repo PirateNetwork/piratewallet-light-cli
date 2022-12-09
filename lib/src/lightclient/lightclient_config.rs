@@ -187,7 +187,7 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
     pub fn get_log_config(&self) -> io::Result<Config> {
         let window_size = 3; // log0, log1, log2
         let fixed_window_roller = FixedWindowRoller::builder()
-            .build("zecwallet-light-wallet-log{}", window_size)
+            .build("arrrwallet-light-wallet-log{}", window_size)
             .unwrap();
         let size_limit = 5 * 1024 * 1024; // 5MB as max log file size to roll
         let size_trigger = SizeTrigger::new(size_limit);

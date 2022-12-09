@@ -41,71 +41,71 @@ cd ..
 cargo build --release 
 
 #macOS
-codesign -f -s "Apple Distribution: Concision Systems LLC (5N76B7JDDT)" target/release/zecwallet-cli --deep
-rm -rf target/macOS-zecwallet-cli-v$APP_VERSION
-mkdir -p target/macOS-zecwallet-cli-v$APP_VERSION
-cp target/release/zecwallet-cli target/macOS-zecwallet-cli-v$APP_VERSION/
+codesign -f -s "Apple Distribution: Concision Systems LLC (5N76B7JDDT)" target/release/arrrwallet-cli --deep
+rm -rf target/macOS-arrrwallet-cli-v$APP_VERSION
+mkdir -p target/macOS-arrrwallet-cli-v$APP_VERSION
+cp target/release/arrrwallet-cli target/macOS-arrrwallet-cli-v$APP_VERSION/
 
 # Now sign and zip the binaries
 # macOS
-gpg --batch --output target/macOS-zecwallet-cli-v$APP_VERSION/zecwallet-cli.sig --detach-sig target/macOS-zecwallet-cli-v$APP_VERSION/zecwallet-cli 
+gpg --batch --output target/macOS-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.sig --detach-sig target/macOS-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli 
 cd target
-cd macOS-zecwallet-cli-v$APP_VERSION
-gsha256sum zecwallet-cli > sha256sum.txt
+cd macOS-arrrwallet-cli-v$APP_VERSION
+gsha256sum arrrwallet-cli > sha256sum.txt
 cd ..
-zip -r macOS-zecwallet-cli-v$APP_VERSION.zip macOS-zecwallet-cli-v$APP_VERSION 
+zip -r macOS-arrrwallet-cli-v$APP_VERSION.zip macOS-arrrwallet-cli-v$APP_VERSION 
 cd ..
 
 # For Windows and Linux, build via docker
-docker run --rm -v $(pwd)/:/opt/zecwallet-light-cli rustbuild:latest bash -c "cd /opt/zecwallet-light-cli && cargo build --release && SODIUM_LIB_DIR='/opt/libsodium-win64/lib/' cargo build --release --target x86_64-pc-windows-gnu"
+docker run --rm -v $(pwd)/:/opt/arrrwallet-light-cli rustbuild:latest bash -c "cd /opt/arrrwallet-light-cli && cargo build --release && SODIUM_LIB_DIR='/opt/libsodium-win64/lib/' cargo build --release --target x86_64-pc-windows-gnu"
 
 #Linux
-rm -rf target/linux-zecwallet-cli-v$APP_VERSION
-mkdir -p target/linux-zecwallet-cli-v$APP_VERSION
-cp target/release/zecwallet-cli target/linux-zecwallet-cli-v$APP_VERSION/
-gpg --batch --output target/linux-zecwallet-cli-v$APP_VERSION/zecwallet-cli.sig --detach-sig target/linux-zecwallet-cli-v$APP_VERSION/zecwallet-cli
+rm -rf target/linux-arrrwallet-cli-v$APP_VERSION
+mkdir -p target/linux-arrrwallet-cli-v$APP_VERSION
+cp target/release/arrrwallet-cli target/linux-arrrwallet-cli-v$APP_VERSION/
+gpg --batch --output target/linux-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.sig --detach-sig target/linux-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli
 cd target
-cd linux-zecwallet-cli-v$APP_VERSION
-gsha256sum zecwallet-cli > sha256sum.txt
+cd linux-arrrwallet-cli-v$APP_VERSION
+gsha256sum arrrwallet-cli > sha256sum.txt
 cd ..
-zip -r linux-zecwallet-cli-v$APP_VERSION.zip linux-zecwallet-cli-v$APP_VERSION 
+zip -r linux-arrrwallet-cli-v$APP_VERSION.zip linux-arrrwallet-cli-v$APP_VERSION 
 cd ..
 
 
 #Windows
-rm -rf target/Windows-zecwallet-cli-v$APP_VERSION
-mkdir -p target/Windows-zecwallet-cli-v$APP_VERSION
-cp target/x86_64-pc-windows-gnu/release/zecwallet-cli.exe target/Windows-zecwallet-cli-v$APP_VERSION/
-gpg --batch --output target/Windows-zecwallet-cli-v$APP_VERSION/zecwallet-cli.sig --detach-sig target/Windows-zecwallet-cli-v$APP_VERSION/zecwallet-cli.exe
+rm -rf target/Windows-arrrwallet-cli-v$APP_VERSION
+mkdir -p target/Windows-arrrwallet-cli-v$APP_VERSION
+cp target/x86_64-pc-windows-gnu/release/arrrwallet-cli.exe target/Windows-arrrwallet-cli-v$APP_VERSION/
+gpg --batch --output target/Windows-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.sig --detach-sig target/Windows-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.exe
 cd target
-cd Windows-zecwallet-cli-v$APP_VERSION
-gsha256sum zecwallet-cli.exe > sha256sum.txt
+cd Windows-arrrwallet-cli-v$APP_VERSION
+gsha256sum arrrwallet-cli.exe > sha256sum.txt
 cd ..
-zip -r Windows-zecwallet-cli-v$APP_VERSION.zip Windows-zecwallet-cli-v$APP_VERSION 
+zip -r Windows-arrrwallet-cli-v$APP_VERSION.zip Windows-arrrwallet-cli-v$APP_VERSION 
 cd ..
 
 
 # #Armv7
-# rm -rf target/Armv7-zecwallet-cli-v$APP_VERSION
-# mkdir -p target/Armv7-zecwallet-cli-v$APP_VERSION
-# cp target/armv7-unknown-linux-gnueabihf/release/zecwallet-cli target/Armv7-zecwallet-cli-v$APP_VERSION/
-# gpg --batch --output target/Armv7-zecwallet-cli-v$APP_VERSION/zecwallet-cli.sig --detach-sig target/Armv7-zecwallet-cli-v$APP_VERSION/zecwallet-cli
+# rm -rf target/Armv7-arrrwallet-cli-v$APP_VERSION
+# mkdir -p target/Armv7-arrrwallet-cli-v$APP_VERSION
+# cp target/armv7-unknown-linux-gnueabihf/release/arrrwallet-cli target/Armv7-arrrwallet-cli-v$APP_VERSION/
+# gpg --batch --output target/Armv7-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.sig --detach-sig target/Armv7-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli
 # cd target
-# cd Armv7-zecwallet-cli-v$APP_VERSION
-# gsha256sum zecwallet-cli > sha256sum.txt
+# cd Armv7-arrrwallet-cli-v$APP_VERSION
+# gsha256sum arrrwallet-cli > sha256sum.txt
 # cd ..
-# zip -r Armv7-zecwallet-cli-v$APP_VERSION.zip Armv7-zecwallet-cli-v$APP_VERSION 
+# zip -r Armv7-arrrwallet-cli-v$APP_VERSION.zip Armv7-arrrwallet-cli-v$APP_VERSION 
 # cd ..
 
 
 # #AARCH64
-# rm -rf target/aarch64-zecwallet-cli-v$APP_VERSION
-# mkdir -p target/aarch64-zecwallet-cli-v$APP_VERSION
-# cp target/aarch64-unknown-linux-gnu/release/zecwallet-cli target/aarch64-zecwallet-cli-v$APP_VERSION/
-# gpg --batch --output target/aarch64-zecwallet-cli-v$APP_VERSION/zecwallet-cli.sig --detach-sig target/aarch64-zecwallet-cli-v$APP_VERSION/zecwallet-cli
+# rm -rf target/aarch64-arrrwallet-cli-v$APP_VERSION
+# mkdir -p target/aarch64-arrrwallet-cli-v$APP_VERSION
+# cp target/aarch64-unknown-linux-gnu/release/arrrwallet-cli target/aarch64-arrrwallet-cli-v$APP_VERSION/
+# gpg --batch --output target/aarch64-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli.sig --detach-sig target/aarch64-arrrwallet-cli-v$APP_VERSION/arrrwallet-cli
 # cd target
-# cd aarch64-zecwallet-cli-v$APP_VERSION
-# gsha256sum zecwallet-cli > sha256sum.txt
+# cd aarch64-arrrwallet-cli-v$APP_VERSION
+# gsha256sum arrrwallet-cli > sha256sum.txt
 # cd ..
-# zip -r aarch64-zecwallet-cli-v$APP_VERSION.zip aarch64-zecwallet-cli-v$APP_VERSION 
+# zip -r aarch64-arrrwallet-cli-v$APP_VERSION.zip aarch64-arrrwallet-cli-v$APP_VERSION 
 # cd ..

@@ -10,7 +10,7 @@ use piratewalletlitelib::{
 pub fn main() {
     // Get command line arguments
     use clap::{App, Arg};
-    let fresh_app = App::new("Zecwallet CLI");
+    let fresh_app = App::new("Arrrwallet CLI");
     let configured_app = configure_clapapp!(fresh_app);
     let matches = configured_app.get_matches();
 
