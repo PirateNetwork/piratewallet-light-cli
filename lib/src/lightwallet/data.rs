@@ -632,7 +632,7 @@ pub struct WalletTx {
 
     // Value Balance of this Tx.
     pub value_balance : u64,
-    // Price of Zec when this Tx was created
+    // Price of Arrr when this Tx was created
     pub arrr_price: Option<f64>,
 }
 
@@ -877,11 +877,11 @@ impl WalletArrrPriceInfo {
         if version > Self::serialized_version() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Can't read ZecPriceInfo because of incorrect version",
+                "Can't read ArrrPriceInfo because of incorrect version",
             ));
         }
 
-        // The "current" zec price is not persisted, since it is almost certainly outdated
+        // The "current" arrr price is not persisted, since it is almost certainly outdated
         let arrr_price = None;
 
         // Currency is only USD for now
@@ -901,7 +901,7 @@ impl WalletArrrPriceInfo {
     pub fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u64::<LittleEndian>(Self::serialized_version())?;
 
-        // We don't write the currency zec price or the currency yet.
+        // We don't write the currency arrr price or the currency yet.
         Optional::write(&mut writer, self.last_historical_prices_fetched_at, |w, t| {
             w.write_u64::<LittleEndian>(t)
         })?;

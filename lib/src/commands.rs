@@ -259,14 +259,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for InfoComman
     }
 }
 
-struct ZecPriceCommand {}
+struct ArrrPriceCommand {}
 
-impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for ZecPriceCommand {
+impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for ArrrPriceCommand {
     fn help(&self) -> String {
         let mut h = vec![];
         h.push("Get the latest ARRR price in the wallet's currency (USD)");
         h.push("Usage:");
-        h.push("zecprice");
+        h.push("arrrprice");
         h.push("");
 
         h.join("\n")
@@ -1285,7 +1285,7 @@ pub fn get_commands<P: consensus::Parameters + Send + Sync + 'static>() -> Box<H
     map.insert("import".to_string(), Box::new(ImportCommand {}));
     map.insert("export".to_string(), Box::new(ExportCommand {}));
     map.insert("info".to_string(), Box::new(InfoCommand {}));
-    map.insert("zecprice".to_string(), Box::new(ZecPriceCommand {}));
+    map.insert("arrrprice".to_string(), Box::new(ArrrPriceCommand {}));
     map.insert("send".to_string(), Box::new(SendCommand {}));
     // map.insert("shield".to_string(), Box::new(ShieldCommand {}));
     map.insert("save".to_string(), Box::new(SaveCommand {}));

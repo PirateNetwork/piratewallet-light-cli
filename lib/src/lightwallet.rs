@@ -388,7 +388,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
 
     pub async fn set_latest_arrr_price(&self, price: f64) {
         if price <= 0 as f64 {
-            warn!("Tried to set a bad current zec price {}", price);
+            warn!("Tried to set a bad current arrr price {}", price);
             return;
         }
 
