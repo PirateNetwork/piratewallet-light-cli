@@ -278,11 +278,11 @@ impl<P: consensus::Parameters + Send + Sync + 'static> CompactTxStreamer for Tes
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 
-    async fn get_zec_price(&self, _request: Request<PriceRequest>) -> Result<Response<PriceResponse>, Status> {
-        self.get_current_zec_price(Request::new(Empty {})).await
+    async fn get_arrr_price(&self, _request: Request<PriceRequest>) -> Result<Response<PriceResponse>, Status> {
+        self.get_current_arrr_price(Request::new(Empty {})).await
     }
 
-    async fn get_current_zec_price(&self, _request: Request<Empty>) -> Result<Response<PriceResponse>, Status> {
+    async fn get_current_arrr_price(&self, _request: Request<Empty>) -> Result<Response<PriceResponse>, Status> {
         Self::wait_random().await;
 
         let mut res = PriceResponse::default();

@@ -361,7 +361,7 @@ impl GrpcConnector {
         Ok(response.into_inner())
     }
 
-    pub async fn get_current_zec_price(uri: http::Uri) -> Result<PriceResponse, String> {
+    pub async fn get_current_arrr_price(uri: http::Uri) -> Result<PriceResponse, String> {
         let client = Arc::new(GrpcConnector::new(uri));
         let mut client = client
             .get_client()
@@ -370,7 +370,7 @@ impl GrpcConnector {
         let request = Request::new(Empty {});
 
         let response = client
-            .get_current_zec_price(request)
+            .get_current_arrr_price(request)
             .await
             .map_err(|e| format!("Error with response: {:?}", e))?;
 
@@ -397,7 +397,7 @@ impl GrpcConnector {
                     timestamp: ts,
                     currency: currency.clone(),
                 });
-                match client.get_zec_price(r).await {
+                match client.get_arrr_price(r).await {
                     Ok(response) => {
                         let price_response = response.into_inner();
                         prices.insert(txid, Some(price_response.price));

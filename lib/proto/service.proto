@@ -165,8 +165,8 @@ service CompactTxStreamer {
     rpc GetBlockRange(BlockRange) returns (stream CompactBlock) {}
 
     // Get the historical and current prices
-    rpc GetZECPrice(PriceRequest) returns (PriceResponse) {}
-    rpc GetCurrentZECPrice(Empty) returns (PriceResponse) {}
+    rpc GetARRRPrice(PriceRequest) returns (PriceResponse) {}
+    rpc GetCurrentARRRPrice(Empty) returns (PriceResponse) {}
 
     // Return the requested full (not compact) transaction (as from zcashd)
     rpc GetTransaction(TxFilter) returns (RawTransaction) {}

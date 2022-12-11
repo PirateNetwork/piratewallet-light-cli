@@ -1210,7 +1210,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
     async fn update_current_price(&self) {
         // Get the Arrr price from the server
-        match GrpcConnector::get_current_zec_price(self.get_server_uri()).await {
+        match GrpcConnector::get_current_arrr_price(self.get_server_uri()).await {
             Ok(p) => {
                 self.wallet.set_latest_arrr_price(p.price).await;
             }
