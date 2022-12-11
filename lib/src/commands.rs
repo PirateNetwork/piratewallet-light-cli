@@ -705,7 +705,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SendComman
         h.push("");
         h.push("NOTE: The fee required to send this transaction (currently ARRR 0.0001) is additionally deducted from your balance.");
         h.push("Example:");
-        h.push("send '{\"input\":\"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"output\": [{ \"address\": \"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"amount\": 200000, \"memo\": \"Hello from the command line\"}]}'");
+        h.push("send '{\"input\":\"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"output\": [{ \"address\": \"ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d\", \"amount\": 200000, \"memo\": \"Hello from the command line\"}], \"fee\": 10000}'");
         h.push("");
         h.join("\n")
     }
