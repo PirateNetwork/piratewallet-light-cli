@@ -22,8 +22,7 @@ use zcash_primitives::{
 
 use crate::{grpc_connector::GrpcConnector, lightclient::checkpoints};
 
-pub const DEFAULT_SERVER: &str = "https://piratelightd.cryptoforge.cc:443";
-//pub const DEFAULT_SERVER: &str = "https://lightd.pirate.black:443";
+pub const DEFAULT_SERVER: &str = "https://lightd1.pirate.black:443";
 pub const WALLET_NAME: &str    = "arrr-light-wallet.dat";
 pub const LOGFILE_NAME: &str   = "debug-arrr-light-wallet.log";
 pub const ANCHOR_OFFSET: [u32; 5] = [4, 0, 0, 0, 0];
