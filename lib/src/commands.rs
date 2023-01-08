@@ -46,6 +46,33 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for SyncComman
     }
 }
 
+struct StopSyncCommand {}
+
+impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for StopSyncCommand {
+    fn help(&self) -> String {
+        let mut h = vec![];
+        h.push("Interupt syncing the light client with the server");
+        h.push("Usage:");
+        h.push("stop");
+        h.push("");
+
+        h.join("\n")
+    }
+
+    fn short_help(&self) -> String {
+        "Interupt syncing to the server".to_string()
+    }
+
+    fn exec(&self, _args: &[&str], lightclient: &LightClient<P>) -> String {
+        RT.block_on(async move {
+            match lightclient.stop_sync().await {
+                Ok(j) => j.pretty(2),
+                Err(e) => e,
+            }
+        })
+    }
+}
+
 struct EncryptionStatusCommand {}
 
 impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for EncryptionStatusCommand {
@@ -1267,6 +1294,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Command<P> for QuitComman
 pub fn get_commands<P: consensus::Parameters + Send + Sync + 'static>() -> Box<HashMap<String, Box<dyn Command<P>>>> {
     let mut map: HashMap<String, Box<dyn Command<P>>> = HashMap::new();
 
+    map.insert("stop".to_string(), Box::new(StopSyncCommand {}));
     map.insert("sync".to_string(), Box::new(SyncCommand {}));
     map.insert("syncstatus".to_string(), Box::new(SyncStatusCommand {}));
     map.insert("encryptionstatus".to_string(), Box::new(EncryptionStatusCommand {}));

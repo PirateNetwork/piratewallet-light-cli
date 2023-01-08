@@ -19,7 +19,7 @@ use std::{
     fs::File,
     io::{self, BufReader, Error, ErrorKind, Read, Write},
     path::Path,
-    sync::Arc,
+    sync::{atomic::AtomicBool,Arc},
     time::Duration,
 };
 use tokio::{
@@ -70,6 +70,8 @@ pub struct LightClient<P> {
 
     sync_lock: Mutex<()>,
     bsync_data: Arc<RwLock<BlazeSyncData>>,
+
+    quiting: AtomicBool,
 }
 
 impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
@@ -91,6 +93,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             sapling_spend   : vec![],
             bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
             sync_lock: Mutex::new(()),
+            quiting: AtomicBool::new(false),
         };
 
         l.set_wallet_initial_state(height).await;
@@ -262,6 +265,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
+                quiting: AtomicBool::new(false),
             };
 
             l.set_wallet_initial_state(latest_block).await;
@@ -341,6 +345,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                     sapling_spend   : vec![],
                     sync_lock: Mutex::new(()),
                     bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
+                    quiting: AtomicBool::new(false),
                 };
 
                 l.set_wallet_initial_state(birthday).await;
@@ -379,6 +384,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
+                quiting: AtomicBool::new(false),
             };
 
             #[cfg(feature = "embed_params")]
@@ -421,6 +427,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 sapling_spend   : vec![],
                 sync_lock: Mutex::new(()),
                 bsync_data: Arc::new(RwLock::new(BlazeSyncData::new(&config))),
+                quiting: AtomicBool::new(false),
             };
 
             #[cfg(feature = "embed_params")]
@@ -1398,12 +1405,25 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         sync_result
     }
 
+    //Interupt currently running sync
+    pub async fn stop_sync(&self) -> Result<JsonValue, String> {
+        //set sync interupt
+        self.quiting.store(true,std::sync::atomic::Ordering::SeqCst);
+
+        Ok(object! {
+            "result" => "success"
+        })
+    }
+
     /// Start syncing in batches with the max size, so we don't consume memory more than
     // wha twe can handle.
     async fn start_sync(&self) -> Result<JsonValue, String> {
         // We can only do one sync at a time because we sync blocks in serial order
         // If we allow multiple syncs, they'll all get jumbled up.
         let _lock = self.sync_lock.lock().await;
+
+        //Clear any previous sync interupt
+        self.quiting.store(false,std::sync::atomic::Ordering::SeqCst);
 
         // The top of the wallet
         let last_scanned_height = self.wallet.last_scanned_height().await;
@@ -1475,6 +1495,10 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 return res;
             } else {
                 self.do_save(false).await?;
+            }
+
+            if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
             }
         }
 
