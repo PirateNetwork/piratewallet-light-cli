@@ -377,7 +377,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             let wallet = LightWallet::read(&mut reader, config).await?;
 
             let mut lc = LightClient {
-                wallet,
+                wallet: wallet,
                 config: config.clone(),
                 mempool_monitor: std::sync::RwLock::new(None),
                 sapling_output  : vec![],
