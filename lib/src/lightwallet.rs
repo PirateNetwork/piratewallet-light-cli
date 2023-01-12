@@ -1145,7 +1145,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightWallet<P> {
         F: Fn(Box<[u8]>) -> Fut,
         Fut: Future<Output = Result<String, String>>,
     {
-        if !self.keys.read().await.unlocked {
+        if !self.is_unlocked_for_spending().await {
             return Err("Cannot spend while wallet is locked".to_string());
         }
 
