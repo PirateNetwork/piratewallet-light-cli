@@ -795,7 +795,7 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 [[package]]
 name = "equihash"
 version = "0.1.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -1933,7 +1933,7 @@ dependencies = [
  "webpki-roots",
  "zcash_client_backend",
  "zcash_encoding",
- "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e)",
+ "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6)",
  "zcash_primitives",
  "zcash_proofs",
 ]
@@ -3766,7 +3766,7 @@ dependencies = [
 [[package]]
 name = "zcash_client_backend"
 version = "0.5.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "base64",
  "bech32",
@@ -3784,14 +3784,14 @@ dependencies = [
  "rand_core 0.6.3",
  "subtle 2.4.1",
  "time 0.2.27",
- "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e)",
+ "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6)",
  "zcash_primitives",
 ]
 
 [[package]]
 name = "zcash_encoding"
 version = "0.1.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "byteorder",
  "nonempty",
@@ -3812,7 +3812,7 @@ dependencies = [
 [[package]]
 name = "zcash_note_encryption"
 version = "0.1.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "chacha20",
  "chacha20poly1305",
@@ -3823,7 +3823,7 @@ dependencies = [
 [[package]]
 name = "zcash_primitives"
 version = "0.6.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "aes",
  "bip0039",
@@ -3853,13 +3853,13 @@ dependencies = [
  "sha2 0.9.9",
  "subtle 2.4.1",
  "zcash_encoding",
- "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e)",
+ "zcash_note_encryption 0.1.0 (git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6)",
 ]
 
 [[package]]
 name = "zcash_proofs"
 version = "0.6.0"
-source = "git+https://github.com/piratenetwork/librustzcash?rev=acd5b23c4cafde11e5b34cad4ad0fe607c19765e#acd5b23c4cafde11e5b34cad4ad0fe607c19765e"
+source = "git+https://github.com/piratenetwork/librustzcash?rev=f2d093fd760e59b950e93e9a4cac329f745aacf6#f2d093fd760e59b950e93e9a4cac329f745aacf6"
 dependencies = [
  "bellman",
  "blake2b_simd",

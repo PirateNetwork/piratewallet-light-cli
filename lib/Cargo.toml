@@ -48,11 +48,11 @@ group = "0.12"
 
 rust-embed = { version = "6.3.0", features = ["debug-embed"] }
 
-zcash_primitives = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["transparent-inputs"] }
-zcash_client_backend = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e"}
-zcash_proofs = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["multicore"]}
-zcash_encoding = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e"}
-zcash_note_encryption = { git = "https://github.com/piratenetwork/librustzcash", rev = "acd5b23c4cafde11e5b34cad4ad0fe607c19765e", features = ["pre-zip-212"]}
+zcash_primitives = { git = "https://github.com/piratenetwork/librustzcash", rev = "f2d093fd760e59b950e93e9a4cac329f745aacf6", features = ["transparent-inputs"] }
+zcash_client_backend = { git = "https://github.com/piratenetwork/librustzcash", rev = "f2d093fd760e59b950e93e9a4cac329f745aacf6"}
+zcash_proofs = { git = "https://github.com/piratenetwork/librustzcash", rev = "f2d093fd760e59b950e93e9a4cac329f745aacf6", features = ["multicore"]}
+zcash_encoding = { git = "https://github.com/piratenetwork/librustzcash", rev = "f2d093fd760e59b950e93e9a4cac329f745aacf6"}
+zcash_note_encryption = { git = "https://github.com/piratenetwork/librustzcash", rev = "f2d093fd760e59b950e93e9a4cac329f745aacf6", features = ["pre-zip-212"]}
 
 #Test local changes to librustzcash
 # zcash_primitives = { path = '../../librustzcash/zcash_primitives' , features = ["transparent-inputs"] }
