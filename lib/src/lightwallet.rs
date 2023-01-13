@@ -1490,7 +1490,7 @@ mod test {
         let amt = Amount::from_u64(10_000).unwrap();
         // Reset the anchor offsets
         lc.wallet.config.anchor_offset = [9, 4, 2, 1, 0];
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected >= amt);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note.value, value);
@@ -1507,14 +1507,14 @@ mod test {
 
         // With min anchor_offset at 1, we can't select any notes
         lc.wallet.config.anchor_offset = [9, 4, 2, 1, 1];
-        let (notes, utxos, _selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, _selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert_eq!(notes.len(), 0);
         assert_eq!(utxos.len(), 0);
 
         // Mine 1 block, then it should be selectable
         mine_random_blocks(&mut fcbl, &data, &lc, 1).await;
 
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected >= amt);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note.value, value);
@@ -1532,7 +1532,7 @@ mod test {
         // Mine 15 blocks, then selecting the note should result in witness only 10 blocks deep
         mine_random_blocks(&mut fcbl, &data, &lc, 15).await;
         lc.wallet.config.anchor_offset = [9, 4, 2, 1, 1];
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, true).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected >= amt);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note.value, value);
@@ -1549,7 +1549,7 @@ mod test {
 
         // Trying to select a large amount will fail
         let amt = Amount::from_u64(1_000_000).unwrap();
-        let (notes, utxos, _selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, _selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert_eq!(notes.len(), 0);
         assert_eq!(utxos.len(), 0);
 
@@ -1566,14 +1566,14 @@ mod test {
 
         // Trying to select a large amount will now succeed
         let amt = Amount::from_u64(value + tvalue - 10_000).unwrap();
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, true).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert_eq!(selected, Amount::from_u64(value + tvalue).unwrap());
         assert_eq!(notes.len(), 1);
         assert_eq!(utxos.len(), 1);
 
         // If we set transparent-only = true, only the utxo should be selected
         let amt = Amount::from_u64(tvalue - 10_000).unwrap();
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, true, true).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert_eq!(selected, Amount::from_u64(tvalue).unwrap());
         assert_eq!(notes.len(), 0);
         assert_eq!(utxos.len(), 1);
@@ -1581,7 +1581,7 @@ mod test {
         // Set min confs to 5, so the sapling note will not be selected
         lc.wallet.config.anchor_offset = [9, 4, 4, 4, 4];
         let amt = Amount::from_u64(tvalue - 10_000).unwrap();
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, true).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert_eq!(selected, Amount::from_u64(tvalue).unwrap());
         assert_eq!(notes.len(), 0);
         assert_eq!(utxos.len(), 1);
@@ -1616,7 +1616,7 @@ mod test {
         let amt = Amount::from_u64(10_000).unwrap();
         // Reset the anchor offsets
         lc.wallet.config.anchor_offset = [9, 4, 2, 1, 0];
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected >= amt);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note.value, value1);
@@ -1641,7 +1641,7 @@ mod test {
 
         // Now, try to select a small amount, it should prefer the older note
         let amt = Amount::from_u64(10_000).unwrap();
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected >= amt);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note.value, value1);
@@ -1649,7 +1649,7 @@ mod test {
 
         // Selecting a bigger amount should select both notes
         let amt = Amount::from_u64(value1 + value2).unwrap();
-        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos(amt, false, false).await;
+        let (notes, utxos, selected) = lc.wallet.select_notes_and_utxos_by_address(amt, &lc.wallet.keys().read().await.get_all_zaddresses()[0]).await;
         assert!(selected == amt);
         assert_eq!(notes.len(), 2);
         assert_eq!(utxos.len(), 0);

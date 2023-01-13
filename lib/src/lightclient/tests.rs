@@ -234,7 +234,7 @@ async fn z_incoming_z_outgoing() {
     let outgoing_memo = "Outgoing Memo".to_string();
 
     let sent_txid = lc
-        .test_do_send(vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))])
+        .test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))], &u64::from(DEFAULT_FEE))
         .await
         .unwrap();
 
@@ -451,7 +451,7 @@ async fn multiple_incoming_same_tx() {
     // 3. Send a big tx, so all the value is spent
     let sent_value = value * 3 + u64::from(DEFAULT_FEE);
     mine_random_blocks(&mut fcbl, &data, &lc, 5).await; // make the funds spentable
-    let sent_txid = lc.test_do_send(vec![(EXT_ZADDR, sent_value, None)]).await.unwrap();
+    let sent_txid = lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0], vec![(EXT_ZADDR, sent_value, None)], &u64::from(DEFAULT_FEE)).await.unwrap();
 
     // 4. Mine the sent transaction
     fcbl.add_pending_sends(&data).await;
@@ -505,7 +505,7 @@ async fn z_incoming_multiz_outgoing() {
         (EXT_ZADDR, 2, Some("ext1-2".to_string())),
         (EXT_ZADDR2, 20, Some("ext2-20".to_string())),
     ];
-    let sent_txid = lc.test_do_send(tos.clone()).await.unwrap();
+    let sent_txid = lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],tos.clone(), &u64::from(DEFAULT_FEE)).await.unwrap();
     fcbl.add_pending_sends(&data).await;
     mine_pending_blocks(&mut fcbl, &data, &lc).await;
 
@@ -671,7 +671,7 @@ async fn z_incoming_viewkey() {
     let outgoing_memo = "Outgoing Memo".to_string();
 
     let sent_txid = lc
-        .test_do_send(vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))])
+        .test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0], vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))], &u64::from(DEFAULT_FEE))
         .await
         .unwrap();
     fcbl.add_pending_sends(&data).await;
@@ -724,7 +724,7 @@ async fn t_incoming_t_outgoing() {
 
     // 4. We can spend the funds immediately, since this is a taddr
     let sent_value = 20_000;
-    let sent_txid = lc.test_do_send(vec![(EXT_TADDR, sent_value, None)]).await.unwrap();
+    let sent_txid = lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],vec![(EXT_TADDR, sent_value, None)], &u64::from(DEFAULT_FEE)).await.unwrap();
 
     // 5. Test the unconfirmed send.
     let list = lc.do_list_transactions(false).await;
@@ -831,7 +831,7 @@ async fn mixed_txn() {
         (EXT_ZADDR, sent_zvalue, Some(sent_zmemo.clone())),
         (EXT_TADDR, sent_tvalue, None),
     ];
-    lc.test_do_send(tos).await.unwrap();
+    lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],tos, &u64::from(DEFAULT_FEE)).await.unwrap();
 
     fcbl.add_pending_sends(&data).await;
     mine_pending_blocks(&mut fcbl, &data, &lc).await;
@@ -933,7 +933,7 @@ async fn aborted_resync() {
         (EXT_ZADDR, sent_zvalue, Some(sent_zmemo.clone())),
         (EXT_TADDR, sent_tvalue, None),
     ];
-    let sent_txid = lc.test_do_send(tos).await.unwrap();
+    let sent_txid = lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],tos,&u64::from(DEFAULT_FEE)).await.unwrap();
 
     fcbl.add_pending_sends(&data).await;
     mine_pending_blocks(&mut fcbl, &data, &lc).await;
@@ -1043,7 +1043,7 @@ async fn no_change() {
     // 4. Send a tx to both external t-addr and external z addr and mine it
     let sent_zvalue = tvalue + zvalue - u64::from(DEFAULT_FEE);
     let tos = vec![(EXT_ZADDR, sent_zvalue, None)];
-    let sent_txid = lc.test_do_send(tos).await.unwrap();
+    let sent_txid = lc.test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],tos, &u64::from(DEFAULT_FEE)).await.unwrap();
 
     fcbl.add_pending_sends(&data).await;
     mine_pending_blocks(&mut fcbl, &data, &lc).await;
@@ -1178,7 +1178,7 @@ async fn witness_clearing() {
     let outgoing_memo = "Outgoing Memo".to_string();
 
     let _sent_txid = lc
-        .test_do_send(vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))])
+        .test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))], &u64::from(DEFAULT_FEE))
         .await
         .unwrap();
 
@@ -1285,7 +1285,7 @@ async fn mempool_clearing() {
     let outgoing_memo = "Outgoing Memo".to_string();
 
     let sent_txid = lc
-        .test_do_send(vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))])
+        .test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))],&u64::from(DEFAULT_FEE))
         .await
         .unwrap();
 
@@ -1390,7 +1390,7 @@ async fn mempool_and_balance() {
     let outgoing_memo = "Outgoing Memo".to_string();
 
     let _sent_txid = lc
-        .test_do_send(vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))])
+        .test_do_send(&lc.wallet.keys().read().await.get_all_zaddresses()[0],vec![(EXT_ZADDR, sent_value, Some(outgoing_memo.clone()))],&u64::from(DEFAULT_FEE))
         .await
         .unwrap();
 
