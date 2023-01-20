@@ -1465,7 +1465,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             // if prev + batch_size > 1_700_000 {
             //     batch_size = 1_000;
             // }
-            let batch_size = 10_000;
+            let batch_size = 1_000;
 
             let batch = cmp::min(latest_blockid.height, prev + batch_size);
             prev = batch;
