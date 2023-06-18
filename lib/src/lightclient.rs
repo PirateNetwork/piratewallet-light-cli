@@ -1360,49 +1360,110 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     }
 
     pub async fn do_sync(&self, print_updates: bool) -> Result<JsonValue, String> {
-        // Remember the previous sync id first
-        let prev_sync_id = self.bsync_data.read().await.sync_status.read().await.sync_id;
 
-        // Start the sync
-        let r_fut = self.start_sync();
+        // let mut fail_count = 0;
+        let mut success_count = 0;
+        let mut blocks = 10_000;
 
-        // If printing updates, start a new task to print updates every 2 seconds.
-        let sync_result = if print_updates {
-            let sync_status = self.bsync_data.read().await.sync_status.clone();
-            let (tx, mut rx) = oneshot::channel::<i32>();
+        let mut result = Ok(object!{"result" => "success"});
+        let mut sync_complete = false;
+        while !sync_complete {
+            // Remember the previous sync id first
+            let prev_sync_id = self.bsync_data.read().await.sync_status.read().await.sync_id;
 
-            tokio::spawn(async move {
-                while sync_status.read().await.sync_id == prev_sync_id {
-                    yield_now().await;
-                    sleep(Duration::from_secs(3)).await;
-                }
+            //Get Chain Height
+            let uri = self.config.server.clone();
+            result = match GrpcConnector::get_latest_block(uri.clone()).await {
+                Ok(latest_blockid) => {
 
-                loop {
-                    if let Ok(_t) = rx.try_recv() {
-                        break;
+                    //Get Sync'd Height
+                    let mut last_scanned_height = self.wallet.last_scanned_height().await;
+
+                    //Check Server Height
+                    if latest_blockid.height < last_scanned_height {
+                        let w = format!(
+                            "Server's latest block({}) is behind ours({})",
+                            latest_blockid.height, last_scanned_height
+                        );
+                        warn!("{}", w);
+                        return Ok(object!{"result" => "failed",
+                                          "reason" => w});
                     }
 
-                    let progress = format!("{}", sync_status.read().await);
-                    if print_updates {
-                        println!("{}", progress);
+                    // Start the sync
+                    let r_fut = self.start_sync(blocks);
+
+                    // If printing updates, start a new task to print updates every 2 seconds.
+                    let sync_result = if print_updates {
+                        let sync_status = self.bsync_data.read().await.sync_status.clone();
+                        let (tx, mut rx) = oneshot::channel::<i32>();
+
+                        tokio::spawn(async move {
+                            while sync_status.read().await.sync_id == prev_sync_id {
+                                yield_now().await;
+                                sleep(Duration::from_secs(3)).await;
+                            }
+
+                            loop {
+                                if let Ok(_t) = rx.try_recv() {
+                                    break;
+                                }
+
+                                let progress = format!("{}", sync_status.read().await);
+                                if print_updates {
+                                    println!("{}", progress);
+                                }
+
+                                yield_now().await;
+                                sleep(Duration::from_secs(3)).await;
+                            }
+                        });
+
+                        let r = r_fut.await;
+                        tx.send(1).unwrap();
+                        r
+                    } else {
+                        r_fut.await
+                    };
+
+                    // Mark the sync data as finished, which should clear everything
+                    self.bsync_data.read().await.finish().await;
+
+                    //Get Sync'd Height
+                    last_scanned_height = self.wallet.last_scanned_height().await;
+
+                    if last_scanned_height >= latest_blockid.height {
+                        sync_complete = true;
                     }
 
-                    yield_now().await;
-                    sleep(Duration::from_secs(3)).await;
+                    sync_result
+                },
+                Err(x) =>  Err(x),
+            };
+
+
+            match result.clone() {
+                Ok(_) => {
+                    // fail_count = 0;
+                    success_count += 1;
+                    if success_count >= 5 {
+                        blocks = cmp::min(10_000, blocks * 10);
+                        success_count = 0;
+                    }
+                },
+                Err(x) => {
+                    println!("Sync Error - {}", x);
+                    info!("Sync Error - {}", x);
+                    success_count = 0;
+                    blocks = cmp::max(1, blocks / 10);
+                    sleep(Duration::from_secs(5)).await;
                 }
-            });
+            }
+            
+            sleep(Duration::from_secs(15)).await;
+        }
 
-            let r = r_fut.await;
-            tx.send(1).unwrap();
-            r
-        } else {
-            r_fut.await
-        };
-
-        // Mark the sync data as finished, which should clear everything
-        self.bsync_data.read().await.finish().await;
-
-        sync_result
+        result
     }
 
     //Interupt currently running sync
@@ -1417,7 +1478,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
     /// Start syncing in batches with the max size, so we don't consume memory more than
     // wha twe can handle.
-    async fn start_sync(&self) -> Result<JsonValue, String> {
+    async fn start_sync(&self, batch_size: u64) -> Result<JsonValue, String> {
         // We can only do one sync at a time because we sync blocks in serial order
         // If we allow multiple syncs, they'll all get jumbled up.
         let _lock = self.sync_lock.lock().await;
@@ -1429,85 +1490,94 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         let last_scanned_height = self.wallet.last_scanned_height().await;
 
         let uri = self.config.server.clone();
-        let latest_blockid = GrpcConnector::get_latest_block(uri.clone()).await?;
-        if latest_blockid.height < last_scanned_height {
-            let w = format!(
-                "Server's latest block({}) is behind ours({})",
-                latest_blockid.height, last_scanned_height
-            );
-            warn!("{}", w);
-            return Err(w);
-        }
-
-        if latest_blockid.height == last_scanned_height {
-            if !latest_blockid.hash.is_empty()
-                && BlockHash::from_slice(&latest_blockid.hash).to_string() != self.wallet.last_scanned_hash().await
-            {
-                warn!("One block reorg at height {}", last_scanned_height);
-                // This is a one-block reorg, so pop the last block. Even if there are more blocks to reorg, this is enough
-                // to trigger a sync, which will then reorg the remaining blocks
-                BlockAndWitnessData::invalidate_block(
-                    last_scanned_height,
-                    self.wallet.blocks.clone(),
-                    self.wallet.txns.clone(),
-                )
-                .await;
-            }
-        }
-
-        // Re-read the last scanned height
-        let last_scanned_height = self.wallet.last_scanned_height().await;
-
-        let mut latest_block_batches = vec![];
-        let mut prev = last_scanned_height;
-        while latest_block_batches.is_empty() || prev != latest_blockid.height {
-            // let mut batch_size = 50_000;
-            // if prev + batch_size > 1_700_000 {
-            //     batch_size = 1_000;
-            // }
-            let batch_size = 25;
-
-            let batch = cmp::min(latest_blockid.height, prev + batch_size);
-            prev = batch;
-            latest_block_batches.push(batch);
-        }
-
-        // println!("Batches are {:?}", latest_block_batches);
-
-        // Increment the sync ID so the caller can determine when it is over
-        {
-            let l1 = self.bsync_data.write().await;
-            // println!("l1");
-
-            let mut l2 = l1.sync_status.write().await;
-            // println!("l2");
-
-            l2.start_new(latest_block_batches.len());
-        }
-        // println!("Started new sync");
+        // let latest_blockid = GrpcConnector::get_latest_block(uri.clone()).await?;
 
         let mut res = Err("No batches were run!".to_string());
-        for (batch_num, batch_latest_block) in latest_block_batches.into_iter().enumerate() {
-            // println!("Starting batch {}", batch_num);
-            res = self.start_sync_batch(batch_latest_block, batch_num).await;
-            if res.is_err() {
-                info!("Sync failed, not saving: {:?}", res.as_ref().err());
-                return res;
-            } else {
-                self.do_save(false).await?;
-            }
+        match GrpcConnector::get_latest_block(uri.clone()).await {
+            Ok(latest_blockid) => {
+                if latest_blockid.height < last_scanned_height {
+                    let w = format!(
+                        "Server's latest block({}) is behind ours({})",
+                        latest_blockid.height, last_scanned_height
+                    );
+                    warn!("{}", w);
+                    return Err(w);
+                }
 
-            if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
-                break;
-            }
+                if latest_blockid.height == last_scanned_height {
+                    if !latest_blockid.hash.is_empty()
+                        && BlockHash::from_slice(&latest_blockid.hash).to_string() != self.wallet.last_scanned_hash().await
+                    {
+                        warn!("One block reorg at height {}", last_scanned_height);
+                        // This is a one-block reorg, so pop the last block. Even if there are more blocks to reorg, this is enough
+                        // to trigger a sync, which will then reorg the remaining blocks
+                        BlockAndWitnessData::invalidate_block(
+                            last_scanned_height,
+                            self.wallet.blocks.clone(),
+                            self.wallet.txns.clone(),
+                        )
+                        .await;
+                    }
+                }
+
+                // Re-read the last scanned height
+                let last_scanned_height = self.wallet.last_scanned_height().await;
+                let sync_till_block = cmp::min(last_scanned_height + batch_size, latest_blockid.height);
+                let step = cmp::max(1, batch_size/10);
+
+                let mut latest_block_batches = vec![];
+                let mut prev = last_scanned_height;
+                while latest_block_batches.is_empty() || prev != sync_till_block {
+                    // let mut batch_size = 50_000;
+                    // if prev + batch_size > 1_700_000 {
+                    //     batch_size = 1_000;
+                    // }
+                    //let batch_size = 1_000;
+
+                    let batch = cmp::min(sync_till_block, prev + batch_size);
+                    prev = batch;
+                    latest_block_batches.push(batch);
+                }
+
+                // println!("Batches are {:?}", latest_block_batches);
+
+                // Increment the sync ID so the caller can determine when it is over
+                {
+                    let l1 = self.bsync_data.write().await;
+                    // println!("l1");
+
+                    let mut l2 = l1.sync_status.write().await;
+                    // println!("l2");
+
+                    l2.start_new(latest_block_batches.len());
+                }
+                // println!("Started new sync");
+
+
+                for (batch_num, batch_latest_block) in latest_block_batches.into_iter().enumerate() {
+                    // println!("Starting batch {}", batch_num);
+
+                    res = self.start_sync_batch(batch_latest_block, batch_num, step).await;
+                    if res.is_err() {
+                        info!("Sync failed, not saving: {:?}", res.as_ref().err());
+                        return res;
+                    } else {
+                        self.do_save(false).await?;
+                    }
+
+                    if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                }
+            },
+            Err(x) => res = Err(x)
         }
-
         res
     }
 
     /// start_sync will start synchronizing the blockchain from the wallet's last height. This function will return immediately after starting the sync
     /// Use the `sync_status` command to get the status of the sync
-    async fn start_sync_batch(&self, latest_block: u64, batch_num: usize) -> Result<JsonValue, String> {
+    async fn start_sync_batch(&self, latest_block: u64, batch_num: usize, step: u64) -> Result<JsonValue, String> {
         let uri = self.config.server.clone();
 
         // The top of the wallet
@@ -1595,6 +1665,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                     [block_and_witness_data_tx, trial_decrypts_tx],
                     start_block,
                     end_block,
+                    step,
                     reorg_rx,
                 )
                 .await
