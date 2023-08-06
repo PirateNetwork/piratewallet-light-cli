@@ -424,6 +424,29 @@ impl GrpcConnector {
         Ok(prices)
     }
 
+    pub async fn get_lite_wallet_block_group(uri: http::Uri, height: u64) -> Result<BlockId, String> {
+
+        let bs = BlockId {
+            height: height,
+            hash: vec![],
+        };
+
+        let client = Arc::new(GrpcConnector::new(uri));
+        let mut client = client
+            .get_client()
+            .await
+            .map_err(|e| format!("Error getting client: {:?}", e))?;
+
+        let request = Request::new(bs);
+
+        let response = client
+            .get_lite_wallet_block_group(request)
+            .await
+            .map_err(|e| format!("Error with response: {:?}", e))?;
+
+        Ok(response.into_inner())
+    }
+
     // get_latest_block GRPC call
     pub async fn get_latest_block(uri: http::Uri) -> Result<BlockId, String> {
         let client = Arc::new(GrpcConnector::new(uri));

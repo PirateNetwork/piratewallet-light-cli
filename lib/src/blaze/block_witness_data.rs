@@ -31,6 +31,11 @@ use zcash_primitives::{
 
 use super::{fixed_size_buffer::FixedSizeBuffer, sync_status::SyncStatus};
 
+pub struct TreeCache {
+    height: u64,
+    tree: CommitmentTree<Node>
+}
+
 pub struct BlockAndWitnessData {
     // List of all blocks and their hashes/commitment trees. Stored from smallest block height to tallest block height
     blocks: Arc<RwLock<Vec<BlockData>>>,
@@ -52,6 +57,8 @@ pub struct BlockAndWitnessData {
     sync_status: Arc<RwLock<SyncStatus>>,
 
     sapling_activation_height: u64,
+
+    tree_cache: Arc<RwLock<Vec<TreeCache>>>
 }
 
 impl BlockAndWitnessData {
@@ -64,6 +71,7 @@ impl BlockAndWitnessData {
             verified_tree: None,
             sync_status,
             sapling_activation_height: config.sapling_activation_height,
+            tree_cache: Arc::new(RwLock::new(vec![])),
         }
     }
 
@@ -88,6 +96,9 @@ impl BlockAndWitnessData {
 
         self.existing_blocks.write().await.clear();
         self.existing_blocks.write().await.extend(existing_blocks);
+
+        self.tree_cache.write().await.clear();
+
     }
 
     // Finish up the sync. This method will delete all the elements in the blocks, and return
@@ -445,10 +456,33 @@ impl BlockAndWitnessData {
             let tree = if prev_height < self.sapling_activation_height {
                 CommitmentTree::empty()
             } else {
-                let tree_state = GrpcConnector::get_sapling_tree(uri, prev_height).await?;
-                let sapling_tree = hex::decode(&tree_state.tree).unwrap();
-                // self.verification_list.write().await.push(tree_state);
-                CommitmentTree::read(&sapling_tree[..]).map_err(|e| format!("{}", e))?
+
+                let mut tree_cache = self.tree_cache.write().await;
+                let mut found = false;
+                let mut position = 0;
+                for (i, cache) in tree_cache.iter().enumerate() {
+                    if cache.height == prev_height {
+                        found = true;
+                        position = i;
+                    }
+                }
+
+                if found {
+                    tree_cache[position].tree.clone()
+                } else {
+                    let tree_state = GrpcConnector::get_sapling_tree(uri, prev_height).await?;
+                    let sapling_tree = hex::decode(&tree_state.tree).unwrap();
+                    // self.verification_list.write().await.push(tree_state);
+
+                    let tree_state = CommitmentTree::read(&sapling_tree[..]).map_err(|e| format!("{}", e))?;
+                    let new_tree = TreeCache {
+                        height: prev_height,
+                        tree: tree_state.clone()
+                    };
+
+                    tree_cache.push(new_tree);
+                    tree_state
+                }
             };
 
             // Get the current compact block

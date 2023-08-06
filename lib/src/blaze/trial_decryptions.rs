@@ -145,6 +145,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> TrialDecryptions<P> {
                 let decrypts = try_compact_note_decryption(ivks.as_ref(), outputs.as_ref());
 
                 let mut wallet_tx = false;
+                let keys = keys.read().await;
+
                 for (dec_num, maybe_decrypted) in decrypts.into_iter().enumerate() {
                     if let Some((note, to)) = maybe_decrypted {
                         wallet_tx = true;
@@ -153,16 +155,15 @@ impl<P: consensus::Parameters + Send + Sync + 'static> TrialDecryptions<P> {
                         let output_num = dec_num % outputs_total;
                         let ivk_num = dec_num / outputs_total;
 
-                        let keys = keys.clone();
                         let bsync_data = bsync_data.clone();
                         let wallet_txns = wallet_txns.clone();
                         let detected_txid_sender = detected_txid_sender.clone();
                         let timestamp = cb.time as u64;
 
+                        let extfvk = keys.zkeys[ivk_num].extfvk().clone();
+                        let have_spending_key = keys.have_spending_key(&extfvk).clone();
+
                         workers.push(tokio_handle.spawn(async move {
-                            let keys = keys.read().await;
-                            let extfvk = keys.zkeys[ivk_num].extfvk();
-                            let have_spending_key = keys.have_spending_key(extfvk);
                             let uri = bsync_data.read().await.uri().clone();
 
                             // Get the witness for the note

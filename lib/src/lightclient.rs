@@ -1361,9 +1361,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
     pub async fn do_sync(&self, print_updates: bool) -> Result<JsonValue, String> {
 
-        // let mut fail_count = 0;
-        let mut success_count = 0;
         let mut blocks = 10_000;
+        let mut error_count = 0;
 
         let mut result = Ok(object!{"result" => "success"});
         let mut sync_complete = false;
@@ -1371,10 +1370,27 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             // Remember the previous sync id first
             let prev_sync_id = self.bsync_data.read().await.sync_status.read().await.sync_id;
 
-            //Get Chain Height
+            //Get URI for gRPC calls
             let uri = self.config.server.clone();
+
+            //Get Sync'd Height
+            let wallet_height = self.wallet.last_scanned_height().await;
+            let sync_to_block = match GrpcConnector::get_lite_wallet_block_group(uri.clone(), wallet_height).await {
+                Ok(sync_to_blockid) => sync_to_blockid.height,
+                Err(_) =>  0,
+            };
+
+            //Determine size of batch
+            if sync_to_block > 0 {
+                blocks = sync_to_block - wallet_height;
+            }
+
+            //Get Chain Height
             result = match GrpcConnector::get_latest_block(uri.clone()).await {
                 Ok(latest_blockid) => {
+
+                    //Set Chainheight
+                    let chain_height = latest_blockid.height.clone();
 
                     //Get Sync'd Height
                     let mut last_scanned_height = self.wallet.last_scanned_height().await;
@@ -1411,7 +1427,7 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
                                 let progress = format!("{}", sync_status.read().await);
                                 if print_updates {
-                                    println!("{}", progress);
+                                    println!("{}, Batch Size {}, Chain height {}", progress, blocks, chain_height);
                                 }
 
                                 yield_now().await;
@@ -1444,23 +1460,21 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
 
             match result.clone() {
                 Ok(_) => {
-                    // fail_count = 0;
-                    success_count += 1;
-                    if success_count >= 5 {
-                        blocks = cmp::min(10_000, blocks * 10);
-                        success_count = 0;
-                    }
+                    error_count = 0;
                 },
                 Err(x) => {
-                    println!("Sync Error - {}", x);
+                    println!("Sync Error - {}, sleeping 15 seconds before next try.", x);
                     info!("Sync Error - {}", x);
-                    success_count = 0;
-                    blocks = cmp::max(1, blocks / 10);
-                    sleep(Duration::from_secs(5)).await;
+                    sleep(Duration::from_secs(15)).await;
+                    error_count += 1;
                 }
             }
-            
-            sleep(Duration::from_secs(15)).await;
+
+            if error_count > 10 {
+                result = Ok(object!{"result" => "failed",
+                                 "reason" => "Sync failed after 10 consecutive errors, please check the log!"});
+                break;
+            }
         }
 
         result

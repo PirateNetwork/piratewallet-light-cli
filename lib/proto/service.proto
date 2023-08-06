@@ -157,6 +157,7 @@ message PriceResponse {
 }
 
 service CompactTxStreamer {
+    rpc GetLiteWalletBlockGroup(BlockID) returns (BlockID) {}
     // Return the height of the tip of the best chain
     rpc GetLatestBlock(ChainSpec) returns (BlockID) {}
     // Return the compact block corresponding to the given block identifier

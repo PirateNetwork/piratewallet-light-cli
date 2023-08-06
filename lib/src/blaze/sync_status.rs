@@ -75,7 +75,7 @@ impl fmt::Display for SyncStatus {
         if self.blocks_total > 0 && self.in_progress {
             write!(
                 f,
-                "id: {}, batch: {}/{}, blocks: {}/{}, decryptions: {}, tx_scan: {}",
+                "id: {}, batch: {}/{}, blocks: {}/{}, decryptions: {}, tx_scan: {}, start block {}, end block {}",
                 self.sync_id,
                 self.batch_num,
                 self.batch_total,
@@ -83,6 +83,8 @@ impl fmt::Display for SyncStatus {
                 self.blocks_total,
                 self.trial_dec_done,
                 self.txn_scan_done,
+                self.start_block,
+                self.end_block,
             )
         } else {
             write!(
