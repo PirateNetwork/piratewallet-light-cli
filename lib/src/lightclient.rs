@@ -1470,6 +1470,12 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                 }
             }
 
+            if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
+                result = Ok(object!{"result" => "failed",
+                                    "reason" => "Sync interupted!"});
+                break;
+            }
+
             if error_count > 10 {
                 result = Ok(object!{"result" => "failed",
                                  "reason" => "Sync failed after 10 consecutive errors, please check the log!"});
