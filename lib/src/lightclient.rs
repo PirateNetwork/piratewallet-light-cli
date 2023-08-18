@@ -1473,13 +1473,13 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
             if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
                 result = Ok(object!{"result" => "failed",
                                     "reason" => "Sync interupted!"});
-                break;
+                sync_complete = true;
             }
 
             if error_count > 10 {
                 result = Ok(object!{"result" => "failed",
                                  "reason" => "Sync failed after 10 consecutive errors, please check the log!"});
-                break;
+                sync_complete = true;
             }
         }
 
@@ -1491,6 +1491,12 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
         //set sync interupt
         self.quiting.store(true,std::sync::atomic::Ordering::SeqCst);
 
+        // Wait until lock has been released
+        let _lock = self.sync_lock.lock().await;
+
+        //Clear any previous sync interupt
+        self.quiting.store(false,std::sync::atomic::Ordering::SeqCst);
+
         Ok(object! {
             "result" => "success"
         })
@@ -1499,12 +1505,14 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
     /// Start syncing in batches with the max size, so we don't consume memory more than
     // wha twe can handle.
     async fn start_sync(&self, batch_size: u64) -> Result<JsonValue, String> {
+
+        if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("No batches were run!".to_string());
+        }
+        
         // We can only do one sync at a time because we sync blocks in serial order
         // If we allow multiple syncs, they'll all get jumbled up.
         let _lock = self.sync_lock.lock().await;
-
-        //Clear any previous sync interupt
-        self.quiting.store(false,std::sync::atomic::Ordering::SeqCst);
 
         // The top of the wallet
         let last_scanned_height = self.wallet.last_scanned_height().await;
@@ -1583,10 +1591,6 @@ impl<P: consensus::Parameters + Send + Sync + 'static> LightClient<P> {
                         return res;
                     } else {
                         self.do_save(false).await?;
-                    }
-
-                    if self.quiting.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
                     }
                 }
             },
