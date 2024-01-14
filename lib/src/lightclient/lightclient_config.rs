@@ -22,7 +22,7 @@ use zcash_primitives::{
 
 use crate::{grpc_connector::GrpcConnector, lightclient::checkpoints};
 
-pub const DEFAULT_SERVER: &str = "https://lightd1.pirate.black:443";
+pub const DEFAULT_SERVER: &str = "https://piratelightd4.cryptoforge.cc:443";
 pub const WALLET_NAME: &str    = "arrr-light-wallet.dat";
 pub const LOGFILE_NAME: &str   = "debug-arrr-light-wallet.log";
 pub const ANCHOR_OFFSET: [u32; 5] = [4, 0, 0, 0, 0];
@@ -327,7 +327,7 @@ impl<P: consensus::Parameters> LightClientConfig<P> {
         match GrpcConnector::get_sapling_tree(self.server.clone(), height).await {
             Ok(tree_state) => {
                 let hash = tree_state.hash.clone();
-                let tree = tree_state.tree.clone();
+                let tree = tree_state.sapling_tree.clone();
                 Some((tree_state.height, hash, tree))
             }
             Err(e) => {

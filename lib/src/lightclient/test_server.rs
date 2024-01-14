@@ -390,6 +390,8 @@ impl<P: consensus::Parameters + Send + Sync + 'static> CompactTxStreamer for Tes
         let block = request.into_inner();
         println!("Getting tree state at {}", block.height);
 
+        println!("Tree State {:?}", block);
+
         // See if it is manually set.
         if let Some((height, hash, tree)) = self
             .data

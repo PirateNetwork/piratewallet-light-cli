@@ -358,6 +358,8 @@ impl GrpcConnector {
             .await
             .map_err(|e| format!("Error with response: {:?}", e))?;
 
+        println!("Tree State {:?}", response);
+
         Ok(response.into_inner())
     }
 
